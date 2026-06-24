@@ -148,7 +148,7 @@ const router = createBrowserRouter(
       ],
     },
   ],
-  { basename: '/madrich' }
+  { basename: '/' }
 );
 
 export default function App() {

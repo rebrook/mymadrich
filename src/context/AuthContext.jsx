@@ -1,13 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-
 const AuthContext = createContext(null);
-
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     // Get the initial session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
@@ -18,7 +15,6 @@ export function AuthProvider({ children }) {
         setLoading(false);
       }
     });
-
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, s) => {
@@ -31,10 +27,8 @@ export function AuthProvider({ children }) {
         }
       }
     );
-
     return () => subscription.unsubscribe();
   }, []);
-
   async function fetchProfile(userId) {
     try {
       const { data, error } = await supabase
@@ -42,9 +36,7 @@ export function AuthProvider({ children }) {
         .select('*')
         .eq('id', userId)
         .single();
-
       if (error) throw error;
-
       // Check for pending invitations and auto-apply role/linkage
       try {
         const { data: invResult } = await supabase.rpc('process_pending_invitation');
@@ -64,7 +56,6 @@ export function AuthProvider({ children }) {
         // Invitation processing is non-critical; log and continue
         console.warn('Invitation check skipped:', invErr.message);
       }
-
       setProfile(data);
     } catch (err) {
       console.error('Error fetching profile:', err.message);
@@ -73,34 +64,30 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   }
-
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/madrich`,
+        redirectTo: window.location.origin,
       },
     });
     if (error) console.error('Google sign-in error:', error.message);
   }
-
   async function signInWithMagicLink(email) {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/madrich`,
+        emailRedirectTo: window.location.origin,
       },
     });
     if (error) throw error;
   }
-
   async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) console.error('Sign-out error:', error.message);
     setSession(null);
     setProfile(null);
   }
-
   const value = {
     session,
     user: session?.user ?? null,
@@ -111,10 +98,8 @@ export function AuthProvider({ children }) {
     signInWithMagicLink,
     signOut,
   };
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
