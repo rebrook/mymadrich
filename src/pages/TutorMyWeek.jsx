@@ -417,7 +417,7 @@ export default function TutorMyWeek() {
       nextEndTime: sess.next_session_end_time || null,
       parashah: reading?.portion_name || '',
       paceLabel: pace ? PACE_LABELS[pace.status] || '' : '',
-      appUrl: `${window.location.origin}/madrich/dashboard`,
+      appUrl: `${window.location.origin}/dashboard`,
     };
   }
 

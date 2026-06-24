@@ -269,7 +269,7 @@ export function buildTutorSessionMailto({
 
 /** App URL used in invite messages. Env var with fallback. */
 const APP_URL = import.meta.env.VITE_APP_URL
-  || (window.location.origin + '/madrich');
+  || window.location.origin;
 
 /**
  * Builds a mailto: URL that opens the admin's mail client with a

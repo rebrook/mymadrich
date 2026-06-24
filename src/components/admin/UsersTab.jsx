@@ -13,7 +13,7 @@ const ROLE_LABELS = {
 };
 
 // App URL for invite messages: env variable with fallback
-const APP_URL = import.meta.env.VITE_APP_URL || (window.location.origin + '/madrich');
+const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
 
 export default function UsersTab() {
   const { user: currentUser } = useAuth();
