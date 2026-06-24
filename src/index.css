@@ -4027,6 +4027,7 @@ select.input {
 .student-switcher-option-text {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -10285,7 +10286,11 @@ select.input {
   letter-spacing: 0.02em;
   white-space: nowrap;
   margin-left: auto;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Confirm modal for out-of-cohort selection */
