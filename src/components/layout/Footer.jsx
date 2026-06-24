@@ -56,7 +56,7 @@ function AppFooter() {
         <Sep />
         <span>Supabase</span>
         <Sep />
-        <a href="/about">about.mymadrich.com</a>
+        <a href="/about">About MyMadrich</a>
         <Sep />
         <span>Questions? <a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a></span>
         <Sep />
@@ -84,7 +84,7 @@ function LoginFooter() {
       <div className="app-footer-row app-footer-maker">
         <span>Powered by Claude</span>
         <Sep />
-        <a href="/about">about.mymadrich.com</a>
+        <a href="/about">About MyMadrich</a>
         <Sep />
         <span>Questions? <a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a></span>
       </div>
