@@ -1,0 +1,446 @@
+/* ============================================================
+   S23: Benchmark Meetings
+   Admin scheduler + timeline/dashboard benchmark node styles.
+   Uses existing CSS tokens from index.css.
+   ============================================================ */
+
+/* ---- Category badges ---- */
+
+.bm-cat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  flex: none;
+}
+
+.bm-cat-clergy {
+  background: rgba(74, 35, 102, 0.08);
+  color: var(--color-primary);
+}
+
+.bm-cat-family {
+  background: rgba(198, 146, 42, 0.1);
+  color: var(--color-gold-deep, #a8761c);
+}
+
+
+/* ---- Status badges ---- */
+
+.bm-status-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex: none;
+}
+
+.bm-status-pending {
+  background: var(--color-inset, #f4f2ee);
+  color: var(--color-text-secondary, #6b6962);
+}
+
+.bm-status-scheduled {
+  background: rgba(61, 139, 64, 0.1);
+  color: var(--color-green, #3d8b40);
+}
+
+.bm-status-completed {
+  background: rgba(198, 146, 42, 0.1);
+  color: var(--color-gold-deep, #a8761c);
+}
+
+.bm-status-cancelled {
+  background: var(--color-inset, #f4f2ee);
+  color: var(--color-text-secondary, #6b6962);
+  text-decoration: line-through;
+}
+
+
+/* ---- Admin Scheduler card ---- */
+
+.bm-scheduler {
+  margin-top: var(--space-4, 24px);
+}
+
+.bm-intro {
+  font-size: 0.88rem;
+  color: var(--color-text-secondary, #6b6962);
+  line-height: 1.5;
+  margin-bottom: var(--space-4, 24px);
+  max-width: 60ch;
+}
+
+.bm-group {
+  margin-bottom: var(--space-4, 24px);
+}
+
+.bm-group:last-child {
+  margin-bottom: 0;
+}
+
+.bm-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: var(--space-2, 12px);
+}
+
+.bm-group-count {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary, #6b6962);
+}
+
+.bm-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+
+/* ---- Individual benchmark row ---- */
+
+.bm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #ddd9d1);
+  transition: background 0.15s ease;
+}
+
+.bm-row:hover {
+  background: var(--color-hover, #f0efec);
+}
+
+.bm-row-completed {
+  opacity: 0.7;
+}
+
+.bm-row-cancelled {
+  opacity: 0.5;
+}
+
+.bm-row-seq {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-primary, #4a2366);
+  background: rgba(74, 35, 102, 0.08);
+  flex: none;
+  margin-top: 2px;
+}
+
+.bm-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.bm-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bm-row-label {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--color-text, #2d2d2a);
+}
+
+.bm-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary, #6b6962);
+  margin-top: 3px;
+}
+
+.bm-row-dot {
+  color: var(--color-text-secondary, #6b6962);
+  opacity: 0.5;
+}
+
+.bm-row-suggested {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary, #6b6962);
+  font-style: italic;
+  margin-top: 3px;
+}
+
+.bm-row-notes {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #6b6962);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.bm-row-edit {
+  flex: none;
+  align-self: center;
+}
+
+
+/* ---- Edit modal ---- */
+
+.bm-edit-modal {
+  max-width: 480px;
+}
+
+.bm-edit-title {
+  font-family: var(--font-display, 'Frank Ruhl Libre', Georgia, serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.bm-edit-blurb {
+  font-size: 0.88rem;
+  color: var(--color-text-secondary, #6b6962);
+  line-height: 1.5;
+  margin-top: 8px;
+  margin-bottom: var(--space-3, 16px);
+}
+
+.bm-suggested {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(198, 146, 42, 0.06);
+  border: 1px solid rgba(198, 146, 42, 0.2);
+  margin-bottom: var(--space-3, 16px);
+}
+
+.bm-suggested-label {
+  font-size: 0.84rem;
+  color: var(--color-gold-deep, #a8761c);
+  font-weight: 500;
+}
+
+.bm-edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 12px);
+}
+
+.bm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bm-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b6962);
+  letter-spacing: 0.02em;
+}
+
+.bm-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2, 12px);
+}
+
+.bm-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.bm-edit-error {
+  margin-top: var(--space-2, 12px);
+}
+
+.bm-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: var(--space-3, 16px);
+}
+
+
+/* ---- Timeline benchmark nodes (Road to the Bimah) ---- */
+
+.rb-node.benchmark .rb-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--color-surface, #fff);
+  border: 2.5px solid var(--color-primary, #4a2366);
+}
+
+.rb-node.benchmark.done .rb-dot {
+  background: var(--color-primary, #4a2366);
+  border-color: var(--color-primary, #4a2366);
+}
+
+.rb-node.benchmark.done .rb-dot::after {
+  content: "\2713";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  color: #fff;
+  font-weight: 700;
+}
+
+.rb-node.benchmark .rb-card {
+  border-left: 3px solid var(--color-primary, #4a2366);
+}
+
+.rb-node.benchmark.family .rb-dot {
+  border-color: var(--color-gold, #c6922a);
+}
+
+.rb-node.benchmark.family.done .rb-dot {
+  background: var(--color-gold, #c6922a);
+  border-color: var(--color-gold, #c6922a);
+}
+
+.rb-node.benchmark.family .rb-card {
+  border-left-color: var(--color-gold, #c6922a);
+}
+
+.rb-node.benchmark .rb-card {
+  background: var(--color-surface, #fff);
+  border-top: 1px solid var(--color-border, #ddd9d1);
+  border-right: 1px solid var(--color-border, #ddd9d1);
+  border-bottom: 1px solid var(--color-border, #ddd9d1);
+  border-radius: var(--radius-lg, 14px);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(45,29,61,.05));
+}
+
+.rb-node.benchmark.future .rb-card {
+  background: transparent;
+  box-shadow: none;
+  border-top-style: dashed;
+  border-right-style: dashed;
+  border-bottom-style: dashed;
+  border-left-style: solid;
+}
+
+.rb-bm-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b6962);
+  margin-bottom: 4px;
+}
+
+.rb-bm-eyebrow .bm-cat-badge {
+  font-size: 0.62rem;
+  padding: 1px 7px;
+}
+
+.rb-bm-agenda {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #6b6962);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+
+/* ---- Dashboard benchmark strip (tutor + family) ---- */
+
+.bm-upcoming {
+  margin-top: var(--space-3, 16px);
+}
+
+.bm-upcoming-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary, #6b6962);
+  margin-bottom: 8px;
+}
+
+.bm-upcoming-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bm-upcoming-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #ddd9d1);
+  font-size: 0.85rem;
+}
+
+.bm-upcoming-item .bm-cat-badge {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+}
+
+.bm-upcoming-date {
+  font-weight: 600;
+  color: var(--color-text, #2d2d2a);
+  white-space: nowrap;
+}
+
+.bm-upcoming-label {
+  color: var(--color-text-secondary, #6b6962);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ---- Responsive ---- */
+
+@media (max-width: 768px) {
+  .bm-row {
+    flex-wrap: wrap;
+  }
+
+  .bm-row-edit {
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+
+  .bm-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bm-edit-actions {
+    flex-direction: column;
+  }
+
+  .bm-edit-actions .btn {
+    width: 100%;
+  }
+}
