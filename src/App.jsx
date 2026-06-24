@@ -15,9 +15,11 @@ import TutorMyWeek from './pages/TutorMyWeek';
 import ErrorPage from './components/layout/ErrorPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
+import About from './pages/About';
 import { ROLES } from './utils/constants';
 import './benchmarks.css';
 import './legal.css';
+import './about.css';
 
 /**
  * Root layout: provides AuthContext and route-level page titles.
@@ -55,6 +57,7 @@ const router = createBrowserRouter(
         { path: '/login', element: <LoginPage />, handle: { title: 'Login' } },
         { path: '/privacy', element: <PrivacyPolicy />, handle: { title: 'Privacy Policy' } },
         { path: '/terms', element: <TermsOfUse />, handle: { title: 'Terms of Use' } },
+        { path: '/about', element: <About />, handle: { title: 'About' } },
 
         /* Protected routes (any authenticated user) */
         {
