@@ -12,7 +12,7 @@
 import emblemPurple from '../../assets/chizuk-emblem-purple.png';
 
 const version = import.meta.env.VITE_APP_VERSION || '0.0.0';
-const buildHash = import.meta.env.VITE_GIT_SHA || 'dev';
+const buildHash = (import.meta.env.VITE_GIT_SHA || 'dev').slice(0, 7);
 
 export default function Footer({ context = 'app' }) {
   if (context === 'login') return <LoginFooter />;
