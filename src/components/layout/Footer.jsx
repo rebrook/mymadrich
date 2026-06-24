@@ -56,7 +56,7 @@ function AppFooter() {
         <Sep />
         <span>about.mymadrich.com</span>
         <Sep />
-        <span>Ryan (<a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a>)</span>
+        <span>Questions? <a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a></span>
         <Sep />
         <span className="app-footer-build">
           v{version} &middot; build {buildHash}
@@ -80,7 +80,7 @@ function LoginFooter() {
         <Sep />
         <span>about.mymadrich.com</span>
         <Sep />
-        <span>Ryan (<a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a>)</span>
+        <span>Questions? <a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a></span>
       </div>
     </footer>
   );
