@@ -13,8 +13,11 @@ import RoadToBimah from './pages/RoadToBimah';
 import CohortCalendar from './pages/CohortCalendar';
 import TutorMyWeek from './pages/TutorMyWeek';
 import ErrorPage from './components/layout/ErrorPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfUse from './pages/TermsOfUse';
 import { ROLES } from './utils/constants';
 import './benchmarks.css';
+import './legal.css';
 
 /**
  * Root layout: provides AuthContext and route-level page titles.
@@ -50,6 +53,8 @@ const router = createBrowserRouter(
       children: [
         /* Public routes */
         { path: '/login', element: <LoginPage />, handle: { title: 'Login' } },
+        { path: '/privacy', element: <PrivacyPolicy />, handle: { title: 'Privacy Policy' } },
+        { path: '/terms', element: <TermsOfUse />, handle: { title: 'Terms of Use' } },
 
         /* Protected routes (any authenticated user) */
         {

@@ -47,6 +47,10 @@ function AppFooter() {
           Congregation &amp; Schools
         </span>
         <Sep />
+        <a href="/privacy">Privacy</a>
+        <Sep />
+        <a href="/terms">Terms</a>
+        <Sep />
         <a href="mailto:hello@mymadrich.com">Support</a>
       </div>
       <div className="app-footer-row app-footer-maker">
@@ -74,6 +78,10 @@ function LoginFooter() {
     <footer className="app-footer app-footer-login">
       <div className="app-footer-row app-footer-brand">
         <span>Designed &amp; Built by <strong>Brook Creative LLC</strong></span>
+        <Sep />
+        <a href="/privacy">Privacy</a>
+        <Sep />
+        <a href="/terms">Terms</a>
       </div>
       <div className="app-footer-row app-footer-maker">
         <span>Powered by Claude</span>
