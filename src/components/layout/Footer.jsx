@@ -50,8 +50,6 @@ function AppFooter() {
         <a href="/privacy">Privacy</a>
         <Sep />
         <a href="/terms">Terms</a>
-        <Sep />
-        <a href="mailto:hello@mymadrich.com">Support</a>
       </div>
       <div className="app-footer-row app-footer-maker">
         <span>Powered by Claude</span>

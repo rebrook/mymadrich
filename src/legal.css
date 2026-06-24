@@ -20,7 +20,7 @@
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 700;
-  color: var(--color-purple);
+  color: var(--color-primary);
   margin-bottom: var(--space-1);
 }
 
@@ -28,7 +28,7 @@
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;
-  color: var(--color-purple);
+  color: var(--color-primary);
   margin-top: var(--space-6);
   margin-bottom: var(--space-2);
 }
@@ -47,7 +47,7 @@
 }
 
 .legal-content a {
-  color: var(--color-purple);
+  color: var(--color-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -57,7 +57,7 @@
 }
 
 .legal-content a:focus-visible {
-  outline: 2px solid var(--color-purple);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   border-radius: 2px;
 }
