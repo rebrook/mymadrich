@@ -47,20 +47,16 @@ function AppFooter() {
           Congregation &amp; Schools
         </span>
         <Sep />
-        <a href="#">Privacy</a>
-        <Sep />
-        <a href="#">Terms</a>
-        <Sep />
-        <a href="mailto:rebrook@me.com">Support</a>
+        <a href="mailto:hello@mymadrich.com">Support</a>
       </div>
       <div className="app-footer-row app-footer-maker">
         <span>Powered by Claude</span>
         <Sep />
         <span>Supabase</span>
         <Sep />
-        <a href="#">about.mymadrich.com</a>
+        <span>about.mymadrich.com</span>
         <Sep />
-        <span>Ryan (<a href="mailto:rebrook@me.com">rebrook@me.com</a>)</span>
+        <span>Ryan (<a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a>)</span>
         <Sep />
         <span className="app-footer-build">
           v{version} &middot; build {buildHash}
@@ -78,17 +74,13 @@ function LoginFooter() {
     <footer className="app-footer app-footer-login">
       <div className="app-footer-row app-footer-brand">
         <span>Designed &amp; Built by <strong>Brook Creative LLC</strong></span>
-        <Sep />
-        <a href="#">Privacy</a>
-        <Sep />
-        <a href="#">Terms</a>
       </div>
       <div className="app-footer-row app-footer-maker">
         <span>Powered by Claude</span>
         <Sep />
-        <a href="#">about.mymadrich.com</a>
+        <span>about.mymadrich.com</span>
         <Sep />
-        <span>Ryan (<a href="mailto:rebrook@me.com">rebrook@me.com</a>)</span>
+        <span>Ryan (<a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a>)</span>
       </div>
     </footer>
   );
