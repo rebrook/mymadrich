@@ -34,13 +34,29 @@ export default function CohortCalendar() {
   const { cohorts, loading: cohortsLoading } = useCohorts();
   const [selectedCohortId, setSelectedCohortId] = useState(null);
 
-  // Auto-select the first active cohort
+  // Restore saved cohort or default to active cohort on first load
   useEffect(() => {
-    if (!selectedCohortId && cohorts.length > 0) {
+    if (cohorts.length === 0) return;
+    if (selectedCohortId) return; // already selected
+
+    const STORAGE_KEY = 'mymadrich:calendar_cohort';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const validStored = stored && cohorts.some((c) => c.id === stored);
+
+    if (validStored) {
+      setSelectedCohortId(stored);
+    } else {
+      // Active cohort first, then fall back to first in list
       const active = cohorts.find((c) => c.is_active) || cohorts[0];
       setSelectedCohortId(active.id);
     }
   }, [cohorts, selectedCohortId]);
+
+  // Persist cohort selection (guard against null initial state)
+  useEffect(() => {
+    if (!selectedCohortId) return;
+    localStorage.setItem('mymadrich:calendar_cohort', selectedCohortId);
+  }, [selectedCohortId]);
 
   const selectedCohort = cohorts.find((c) => c.id === selectedCohortId) || null;
 
@@ -475,7 +491,7 @@ export default function CohortCalendar() {
                 {' '}Coordinator {'\u00B7'} planning view
               </span>
               <h1 className="cc-hero-title">
-                Cohort Calendar {'\u00B7'} {hebrewYear}
+                {selectedCohort?.name || 'Cohort Calendar'} {'\u00B7'} {hebrewYear}
               </h1>
               <p className="cc-hero-he" dir="rtl" lang="he">
                 {'\u05DC\u05D5\u05BC\u05D7\u05B7 \u05D6\u05B0\u05DE\u05B7\u05E0\u05B4\u05D9\u05DD'}
@@ -541,6 +557,20 @@ export default function CohortCalendar() {
         <div className="cc-controls">
           <h2 className="cc-controls-title">The season ahead</h2>
           <div className="cc-controls-actions">
+            {cohorts.length > 1 && (
+              <select
+                className="input cohort-select"
+                value={selectedCohortId || ''}
+                onChange={(e) => setSelectedCohortId(e.target.value)}
+                aria-label="Select cohort"
+              >
+                {cohorts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.is_active ? '' : ' (archived)'}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               className="btn-secondary cc-print-btn"
