@@ -33,7 +33,8 @@ export function useStudents(cohortId) {
           *,
           tutor:profiles!tutor_id ( display_name, email ),
           cohort:cohorts!cohort_id ( name, is_active ),
-          student_tutors ( tutor_id, created_at, tutor:profiles!tutor_id ( id, display_name, email ) )
+          student_tutors ( tutor_id, created_at, tutor:profiles!tutor_id ( id, display_name, email ) ),
+          pending_tutor_assignments ( invitation_id )
         `)
         .order('last_name', { ascending: true })
         .order('first_name', { ascending: true });

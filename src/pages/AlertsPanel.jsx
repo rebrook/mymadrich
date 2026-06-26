@@ -16,7 +16,8 @@ const ALERT_TYPES = {
   stale: { label: 'No Session in 14+ Days', color: '#d96c2e', priority: 3, severity: false },
   no_sessions: { label: 'No Sessions Logged', color: '#d97706', priority: 4, severity: false },
   upcoming: { label: 'Mitzvah Within 4 Weeks', color: '#2563eb', priority: 5, severity: false },
-  no_readings: { label: 'No Readings Assigned', color: '#d97706', priority: 6, severity: false },
+  tutor_invited: { label: 'Tutor Invited, Not Yet Signed In', color: '#6b6962', priority: 6, severity: false },
+  no_readings: { label: 'No Readings Assigned', color: '#d97706', priority: 7, severity: false },
 };
 
 const CHIP_CAP = 6;
@@ -228,8 +229,10 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
       if (s.status !== 'active' && s.status !== 'deferred') return;
 
       // Unassigned tutor: M:N check — zero student_tutors rows
+      // If a pending tutor assignment exists, use the softer 'tutor_invited' variant
       if (!s.student_tutors || s.student_tutors.length === 0) {
-        alerts.push({ type: 'unassigned', student: s });
+        const hasPending = (s.pending_tutor_assignments?.length || 0) > 0;
+        alerts.push({ type: hasPending ? 'tutor_invited' : 'unassigned', student: s });
       }
 
       const paceData = paceMap[s.id];

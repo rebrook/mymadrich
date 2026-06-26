@@ -398,10 +398,6 @@ export default function StudentInfoSection({ student, onUpdate }) {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 'var(--space-1)',
-                      ...(t.source === 'pending' ? {
-                        borderStyle: 'dashed',
-                        opacity: 0.85,
-                      } : {}),
                     }}
                   >
                     {tutorName(t)}{t.source === 'pending' ? ' (invited)' : ''}

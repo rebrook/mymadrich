@@ -6559,6 +6559,12 @@ select.input {
   color: #8a5a00;
 }
 
+.badge-pending-tutor {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border);
+}
+
 /* --- Back Link (Student Detail) --- */
 
 .back-link {
