@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { fetchTutors } from '../../hooks/useStudents';
+import { fetchTutors, fetchPendingTutorAssignments } from '../../hooks/useStudents';
 import { getParashahForDate } from '../../utils/hebcal';
 import { mitzvahLabel, tutorName, tutorListLabel } from '../../utils/people';
 import HelpTip from '../ui/HelpTip';
@@ -17,9 +17,13 @@ export default function StudentInfoSection({ student, onUpdate }) {
   const [parasha, setParasha] = useState(null);
 
   // M:N tutor assignment state (editing mode)
-  const [assignedTutorIds, setAssignedTutorIds] = useState([]);
+  // Each entry: { id, source } where source is 'profile' or 'pending'
+  const [assignedTutors, setAssignedTutors] = useState([]);
   const [addTutorId, setAddTutorId] = useState('');
   const [tutorSaving, setTutorSaving] = useState(false);
+
+  // Pending tutor assignments loaded from the staging table
+  const [pendingAssignments, setPendingAssignments] = useState([]);
 
   const [form, setForm] = useState({
     first_name: '',
@@ -34,10 +38,19 @@ export default function StudentInfoSection({ student, onUpdate }) {
     target_completion_date: '',
   });
 
-  // Load tutors for dropdown
+  // Load tutors for dropdown (now includes pending invitations)
   useEffect(() => {
     fetchTutors().then(setTutors).catch(() => {});
   }, []);
+
+  // Load pending tutor assignments for this student
+  useEffect(() => {
+    if (student?.id) {
+      fetchPendingTutorAssignments(student.id)
+        .then(setPendingAssignments)
+        .catch(() => setPendingAssignments([]));
+    }
+  }, [student?.id]);
 
   // Initialize form + assigned tutors when student loads or changes
   useEffect(() => {
@@ -55,14 +68,20 @@ export default function StudentInfoSection({ student, onUpdate }) {
         target_completion_date: student.target_completion_date || '',
       });
 
-      // Initialize assigned tutor IDs from student_tutors (M:N)
-      const ids = (student.student_tutors || [])
+      // Build unified assigned list: profile tutors from student_tutors + pending from staging table
+      const profileEntries = (student.student_tutors || [])
         .filter((st) => st.tutor_id)
         .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
-        .map((st) => st.tutor_id);
-      setAssignedTutorIds(ids);
+        .map((st) => ({ id: st.tutor_id, source: 'profile' }));
+
+      const pendingEntries = pendingAssignments.map((pta) => ({
+        id: pta.invitation_id,
+        source: 'pending',
+      }));
+
+      setAssignedTutors([...profileEntries, ...pendingEntries]);
     }
-  }, [student]);
+  }, [student, pendingAssignments]);
 
   // Look up parashah when mitzvah_date is set
   useEffect(() => {
@@ -74,19 +93,49 @@ export default function StudentInfoSection({ student, onUpdate }) {
     }
   }, [form.mitzvah_date]);
 
-  // ---- Tutor assignment handlers (write to student_tutors) ----
+  // ---- Tutor assignment handlers ----
+  // Routes to student_tutors (profile) or pending_tutor_assignments (pending)
+  // based on the tutor's source.
 
   async function handleAddTutor() {
-    if (!addTutorId || assignedTutorIds.includes(addTutorId)) return;
+    if (!addTutorId) return;
+
+    // Find the tutor object to determine its source
+    const tutorObj = tutors.find((t) => t.id === addTutorId);
+    if (!tutorObj) return;
+
+    // Check for duplicate: same id + source already assigned
+    const alreadyAssigned = assignedTutors.some(
+      (at) => at.id === addTutorId && at.source === tutorObj.source
+    );
+    if (alreadyAssigned) return;
+
     setTutorSaving(true);
     setError(null);
     try {
-      const { error: err } = await supabase
-        .from('student_tutors')
-        .insert({ student_id: student.id, tutor_id: addTutorId });
-      if (err) throw err;
-      setAssignedTutorIds((prev) => [...prev, addTutorId]);
+      if (tutorObj.source === 'profile') {
+        // Write to student_tutors (existing behavior)
+        const { error: err } = await supabase
+          .from('student_tutors')
+          .insert({ student_id: student.id, tutor_id: addTutorId });
+        if (err) throw err;
+      } else {
+        // Write to pending_tutor_assignments (staged)
+        const { error: err } = await supabase
+          .from('pending_tutor_assignments')
+          .insert({ invitation_id: addTutorId, student_id: student.id });
+        if (err) throw err;
+      }
+
+      setAssignedTutors((prev) => [...prev, { id: addTutorId, source: tutorObj.source }]);
       setAddTutorId('');
+
+      // Refresh pending assignments to stay in sync
+      if (tutorObj.source === 'pending') {
+        fetchPendingTutorAssignments(student.id)
+          .then(setPendingAssignments)
+          .catch(() => {});
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -94,17 +143,38 @@ export default function StudentInfoSection({ student, onUpdate }) {
     }
   }
 
-  async function handleRemoveTutor(tutorId) {
+  async function handleRemoveTutor(tutorId, source) {
     setTutorSaving(true);
     setError(null);
     try {
-      const { error: err } = await supabase
-        .from('student_tutors')
-        .delete()
-        .eq('student_id', student.id)
-        .eq('tutor_id', tutorId);
-      if (err) throw err;
-      setAssignedTutorIds((prev) => prev.filter((id) => id !== tutorId));
+      if (source === 'profile') {
+        // Delete from student_tutors (existing behavior)
+        const { error: err } = await supabase
+          .from('student_tutors')
+          .delete()
+          .eq('student_id', student.id)
+          .eq('tutor_id', tutorId);
+        if (err) throw err;
+      } else {
+        // Delete from pending_tutor_assignments
+        const { error: err } = await supabase
+          .from('pending_tutor_assignments')
+          .delete()
+          .eq('invitation_id', tutorId)
+          .eq('student_id', student.id);
+        if (err) throw err;
+      }
+
+      setAssignedTutors((prev) =>
+        prev.filter((at) => !(at.id === tutorId && at.source === source))
+      );
+
+      // Refresh pending assignments to stay in sync
+      if (source === 'pending') {
+        fetchPendingTutorAssignments(student.id)
+          .then(setPendingAssignments)
+          .catch(() => {});
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -167,11 +237,17 @@ export default function StudentInfoSection({ student, onUpdate }) {
       });
 
       // Reset assigned tutors to current state
-      const ids = (student.student_tutors || [])
+      const profileEntries = (student.student_tutors || [])
         .filter((st) => st.tutor_id)
         .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
-        .map((st) => st.tutor_id);
-      setAssignedTutorIds(ids);
+        .map((st) => ({ id: st.tutor_id, source: 'profile' }));
+
+      const pendingEntries = pendingAssignments.map((pta) => ({
+        id: pta.invitation_id,
+        source: 'pending',
+      }));
+
+      setAssignedTutors([...profileEntries, ...pendingEntries]);
     }
     setEditing(false);
     setError(null);
@@ -190,17 +266,67 @@ export default function StudentInfoSection({ student, onUpdate }) {
   if (!student) return null;
 
   // Build the list of tutors available to add (not already assigned)
-  const availableTutors = tutors.filter((t) => !assignedTutorIds.includes(t.id));
+  // Must compare by both id AND source since the id namespace is mixed
+  const availableTutors = tutors.filter(
+    (t) => !assignedTutors.some((at) => at.id === t.id && at.source === t.source)
+  );
 
-  // Resolve assigned tutor profiles for display
-  const assignedTutorProfiles = assignedTutorIds.map((tid) => {
-    // Try the tutors dropdown list first (has all active tutors)
-    const fromList = tutors.find((t) => t.id === tid);
-    if (fromList) return fromList;
-    // Fall back to the student_tutors join data
-    const fromJoin = (student.student_tutors || []).find((st) => st.tutor_id === tid);
-    return fromJoin?.tutor || { id: tid, display_name: null, email: null };
+  // Resolve assigned tutor details for display (both profile and pending)
+  const assignedTutorProfiles = assignedTutors.map((at) => {
+    if (at.source === 'profile') {
+      // Try the tutors dropdown list first (has all active tutors)
+      const fromList = tutors.find((t) => t.id === at.id && t.source === 'profile');
+      if (fromList) return { ...fromList, source: 'profile' };
+      // Fall back to the student_tutors join data
+      const fromJoin = (student.student_tutors || []).find((st) => st.tutor_id === at.id);
+      return { id: at.id, display_name: fromJoin?.tutor?.display_name || null, email: fromJoin?.tutor?.email || null, source: 'profile' };
+    } else {
+      // Pending: look up from the tutors list (which now includes pending invitations)
+      const fromList = tutors.find((t) => t.id === at.id && t.source === 'pending');
+      if (fromList) return { ...fromList, source: 'pending' };
+      // Fall back to the pending assignments data
+      const fromPta = pendingAssignments.find((pta) => pta.invitation_id === at.id);
+      return {
+        id: at.id,
+        display_name: fromPta?.invitation?.display_name || null,
+        email: fromPta?.invitation?.email || null,
+        source: 'pending',
+      };
+    }
   });
+
+  // ---- Read-mode tutor display helpers ----
+
+  // For the read-mode tutor label, combine real tutors with pending ones
+  const hasRealTutors = (student.student_tutors || []).length > 0;
+  const hasPendingTutors = pendingAssignments.length > 0;
+  const totalTutorCount = (student.student_tutors || []).length + pendingAssignments.length;
+
+  function renderReadModeTutors() {
+    if (hasRealTutors || hasPendingTutors) {
+      const parts = [];
+
+      // Real tutors first
+      if (hasRealTutors) {
+        parts.push(tutorListLabel(student.student_tutors, student.tutor));
+      }
+
+      // Pending tutors with (invited) label
+      pendingAssignments.forEach((pta) => {
+        const name = pta.invitation?.display_name || pta.invitation?.email || 'Unknown';
+        parts.push(`${name} (invited)`);
+      });
+
+      return parts.join(', ');
+    }
+
+    // No tutors at all
+    if (student.tutor_id) {
+      return student.tutor?.display_name || '\u2014';
+    }
+
+    return <span className="badge badge-unassigned">Unassigned</span>;
+  }
 
   return (
     <div className="card">
@@ -261,19 +387,27 @@ export default function StudentInfoSection({ student, onUpdate }) {
           <div className="form-group">
             <label className="form-label">Tutors</label>
 
-            {/* Assigned tutor chips */}
+            {/* Assigned tutor chips (profile + pending) */}
             {assignedTutorProfiles.length > 0 ? (
               <div className="tutor-chips" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
                 {assignedTutorProfiles.map((t) => (
                   <span
-                    key={t.id}
-                    className="badge badge-active"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}
+                    key={`${t.source}-${t.id}`}
+                    className={t.source === 'pending' ? 'badge badge-pending-tutor' : 'badge badge-active'}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-1)',
+                      ...(t.source === 'pending' ? {
+                        borderStyle: 'dashed',
+                        opacity: 0.85,
+                      } : {}),
+                    }}
                   >
-                    {tutorName(t)}
+                    {tutorName(t)}{t.source === 'pending' ? ' (invited)' : ''}
                     <button
                       type="button"
-                      onClick={() => handleRemoveTutor(t.id)}
+                      onClick={() => handleRemoveTutor(t.id, t.source)}
                       disabled={tutorSaving}
                       className="tutor-chip-remove"
                       style={{
@@ -307,7 +441,9 @@ export default function StudentInfoSection({ student, onUpdate }) {
               >
                 <option value="">Add a tutor...</option>
                 {availableTutors.map((t) => (
-                  <option key={t.id} value={t.id}>{tutorName(t)}{t.email ? ` (${t.email})` : ''}</option>
+                  <option key={`${t.source}-${t.id}`} value={t.id}>
+                    {tutorName(t)}{t.email ? ` (${t.email})` : ''}{t.source === 'pending' ? ' \u2014 invited' : ''}
+                  </option>
                 ))}
               </select>
               <button
@@ -321,7 +457,7 @@ export default function StudentInfoSection({ student, onUpdate }) {
             </div>
             {tutors.length === 0 && (
               <span className="form-hint">
-                No tutors found. Tutors must sign in and be assigned the tutor role first.
+                No tutors found. Tutors must be invited or sign in and be assigned the tutor role first.
               </span>
             )}
           </div>
@@ -392,16 +528,8 @@ export default function StudentInfoSection({ student, onUpdate }) {
             <p>{student.mitzvah_type ? mitzvahLabel(student.mitzvah_type) : '\u2014'}</p>
           </div>
           <div>
-            <span className="form-label">{(student.student_tutors || []).length > 1 ? 'Tutors' : 'Tutor'}</span>
-            <p>
-              {(student.student_tutors && student.student_tutors.length > 0)
-                ? tutorListLabel(student.student_tutors, student.tutor)
-                : (student.tutor_id
-                    ? (student.tutor?.display_name || '\u2014')
-                    : <span className="badge badge-unassigned">Unassigned</span>
-                  )
-              }
-            </p>
+            <span className="form-label">{totalTutorCount > 1 ? 'Tutors' : 'Tutor'}</span>
+            <p>{renderReadModeTutors()}</p>
           </div>
           <div>
             <span className="form-label">Status</span>
