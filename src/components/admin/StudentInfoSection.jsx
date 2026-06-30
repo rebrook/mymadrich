@@ -19,7 +19,6 @@ export default function StudentInfoSection({ student, onUpdate }) {
   // M:N tutor assignment state (editing mode)
   // Each entry: { id, source } where source is 'profile' or 'pending'
   const [assignedTutors, setAssignedTutors] = useState([]);
-  const [addTutorId, setAddTutorId] = useState('');
   const [tutorSaving, setTutorSaving] = useState(false);
 
   // Pending tutor assignments loaded from the staging table
@@ -97,16 +96,16 @@ export default function StudentInfoSection({ student, onUpdate }) {
   // Routes to student_tutors (profile) or pending_tutor_assignments (pending)
   // based on the tutor's source.
 
-  async function handleAddTutor() {
-    if (!addTutorId) return;
+  async function handleAddTutor(tutorIdArg) {
+    if (!tutorIdArg) return;
 
     // Find the tutor object to determine its source
-    const tutorObj = tutors.find((t) => t.id === addTutorId);
+    const tutorObj = tutors.find((t) => t.id === tutorIdArg);
     if (!tutorObj) return;
 
     // Check for duplicate: same id + source already assigned
     const alreadyAssigned = assignedTutors.some(
-      (at) => at.id === addTutorId && at.source === tutorObj.source
+      (at) => at.id === tutorIdArg && at.source === tutorObj.source
     );
     if (alreadyAssigned) return;
 
@@ -117,18 +116,17 @@ export default function StudentInfoSection({ student, onUpdate }) {
         // Write to student_tutors (existing behavior)
         const { error: err } = await supabase
           .from('student_tutors')
-          .insert({ student_id: student.id, tutor_id: addTutorId });
+          .insert({ student_id: student.id, tutor_id: tutorIdArg });
         if (err) throw err;
       } else {
         // Write to pending_tutor_assignments (staged)
         const { error: err } = await supabase
           .from('pending_tutor_assignments')
-          .insert({ invitation_id: addTutorId, student_id: student.id });
+          .insert({ invitation_id: tutorIdArg, student_id: student.id });
         if (err) throw err;
       }
 
-      setAssignedTutors((prev) => [...prev, { id: addTutorId, source: tutorObj.source }]);
-      setAddTutorId('');
+      setAssignedTutors((prev) => [...prev, { id: tutorIdArg, source: tutorObj.source }]);
 
       // Refresh pending assignments to stay in sync
       if (tutorObj.source === 'pending') {
@@ -427,30 +425,23 @@ export default function StudentInfoSection({ student, onUpdate }) {
               <p className="form-hint" style={{ marginBottom: 'var(--space-2)' }}>No tutors assigned.</p>
             )}
 
-            {/* Add tutor dropdown + button */}
-            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start' }}>
-              <select
-                className="input"
-                value={addTutorId}
-                onChange={(e) => setAddTutorId(e.target.value)}
-                style={{ flex: 1 }}
-              >
-                <option value="">Add a tutor...</option>
-                {availableTutors.map((t) => (
-                  <option key={`${t.source}-${t.id}`} value={t.id}>
-                    {tutorName(t)}{t.email ? ` (${t.email})` : ''}{t.source === 'pending' ? ' \u2014 invited' : ''}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="btn btn-outline btn-small"
-                onClick={handleAddTutor}
-                disabled={!addTutorId || tutorSaving}
-              >
-                Add
-              </button>
-            </div>
+            {/* Add tutor dropdown (auto-adds on selection) */}
+            <select
+              className="input"
+              value=""
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) handleAddTutor(id);
+              }}
+              disabled={tutorSaving}
+            >
+              <option value="">Add a tutor...</option>
+              {availableTutors.map((t) => (
+                <option key={`${t.source}-${t.id}`} value={t.id}>
+                  {tutorName(t)}{t.email ? ` (${t.email})` : ''}{t.source === 'pending' ? ' \u2014 invited' : ''}
+                </option>
+              ))}
+            </select>
             {tutors.length === 0 && (
               <span className="form-hint">
                 No tutors found. Tutors must be invited or sign in and be assigned the tutor role first.
