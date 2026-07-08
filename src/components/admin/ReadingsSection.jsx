@@ -213,7 +213,14 @@ export default function ReadingsSection({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
           {readings.map((r) => (
             <div key={r.id} className="reading-card">
-              <div className="reading-card-header" onClick={() => toggleExpanded(r.id)}>
+              <div
+                className="reading-card-header"
+                role="button"
+                tabIndex={0}
+                aria-expanded={expandedReading === r.id}
+                onClick={() => toggleExpanded(r.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(r.id); } }}
+              >
                 <div className="reading-card-info">
                   <span className={`badge ${r.reading_type === 'torah' ? 'badge-active' : 'badge-deferred'}`}>
                     {r.reading_type === 'torah' ? 'Torah' : 'Haftarah'}

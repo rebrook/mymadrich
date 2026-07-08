@@ -8,9 +8,9 @@
  */
 export default function HelpTip({ text }) {
   return (
-    <span className="help-tip" aria-label={text}>
-      <span className="help-tip-icon" tabIndex={0} role="img" aria-hidden="true">i</span>
-      <span className="help-tip-text">{text}</span>
+    <span className="help-tip">
+      <button type="button" className="help-tip-icon" aria-label={text}>i</button>
+      <span className="help-tip-text" aria-hidden="true">{text}</span>
     </span>
   );
 }

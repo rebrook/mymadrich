@@ -328,7 +328,7 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
       className={`alerts-panel card ${hasSeverity ? 'alerts-panel-accent' : ''}`}
       style={accentStyle}
     >
-      <div className="alerts-panel-header" onClick={() => setCollapsed(!collapsed)}>
+      <button className="alerts-panel-header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}>
         <div className="alerts-panel-title">
           <span className="alerts-panel-icon" aria-hidden="true">{'\u26A0'}</span>
           <h3>
@@ -336,14 +336,13 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
             <span className="alerts-panel-count">{totalAlerts}</span>
           </h3>
         </div>
-        <button
+        <span
           className="alerts-panel-toggle"
-          aria-label={collapsed ? 'Expand alerts' : 'Collapse alerts'}
-          type="button"
+          aria-hidden="true"
         >
           {collapsed ? '\u25B6' : '\u25BC'}
-        </button>
-      </div>
+        </span>
+      </button>
 
       {!collapsed && (
         <div className="alerts-panel-body">

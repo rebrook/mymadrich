@@ -2063,7 +2063,7 @@ export default function Dashboard() {
                               onClick={() => setSelectedStudentId(s.id)}
                               role="button"
                               tabIndex={0}
-                              onKeyDown={(e) => { if (e.key === 'Enter') setSelectedStudentId(s.id); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStudentId(s.id); } }}
                             >
                               <span className="student-avatar student-avatar-sm" aria-hidden="true">
                                 {getInitials(s.first_name, s.last_name)}
@@ -2120,26 +2120,26 @@ export default function Dashboard() {
                             aria-label="Select all students"
                           />
                         </th>
-                        <th className="th-sortable" onClick={() => handleAdminSort('name')} aria-sort={adminAriaSortValue('name')}>
-                          <span className="th-sort-inner">Name{adminSortArrow('name')}</span>
+                        <th className="th-sortable" aria-sort={adminAriaSortValue('name')}>
+                          <button type="button" className="th-sort-inner" onClick={() => handleAdminSort('name')}>Name{adminSortArrow('name')}</button>
                         </th>
-                        <th className="th-sortable" onClick={() => handleAdminSort('mitzvah_date')} aria-sort={adminAriaSortValue('mitzvah_date')}>
-                          <span className="th-sort-inner">B{'\u2019'}nai Mitzvah{adminSortArrow('mitzvah_date')}</span>
+                        <th className="th-sortable" aria-sort={adminAriaSortValue('mitzvah_date')}>
+                          <button type="button" className="th-sort-inner" onClick={() => handleAdminSort('mitzvah_date')}>B{'\u2019'}nai Mitzvah{adminSortArrow('mitzvah_date')}</button>
                         </th>
-                        <th className="th-sortable" onClick={() => handleAdminSort('tutor')} aria-sort={adminAriaSortValue('tutor')}>
-                          <span className="th-sort-inner">Tutor{adminSortArrow('tutor')}</span>
+                        <th className="th-sortable" aria-sort={adminAriaSortValue('tutor')}>
+                          <button type="button" className="th-sort-inner" onClick={() => handleAdminSort('tutor')}>Tutor{adminSortArrow('tutor')}</button>
                         </th>
-                        <th className="th-sortable" onClick={() => handleAdminSort('last_session')} aria-sort={adminAriaSortValue('last_session')}>
-                          <span className="th-sort-inner">Last Session{adminSortArrow('last_session')}</span>
+                        <th className="th-sortable" aria-sort={adminAriaSortValue('last_session')}>
+                          <button type="button" className="th-sort-inner" onClick={() => handleAdminSort('last_session')}>Last Session{adminSortArrow('last_session')}</button>
                         </th>
-                        <th className="th-sortable" onClick={() => handleAdminSort('progress')} aria-sort={adminAriaSortValue('progress')}>
-                          <span className="th-sort-inner">Progress{adminSortArrow('progress')}</span>
+                        <th className="th-sortable" aria-sort={adminAriaSortValue('progress')}>
+                          <button type="button" className="th-sort-inner" onClick={() => handleAdminSort('progress')}>Progress{adminSortArrow('progress')}</button>
                         </th>
-                        <th className="th-sortable" onClick={() => handleAdminSort('pace')} aria-sort={adminAriaSortValue('pace')}>
-                          <span className="th-sort-inner">Pace{adminSortArrow('pace')}</span>
+                        <th className="th-sortable" aria-sort={adminAriaSortValue('pace')}>
+                          <button type="button" className="th-sort-inner" onClick={() => handleAdminSort('pace')}>Pace{adminSortArrow('pace')}</button>
                         </th>
-                        <th className="th-sortable" onClick={() => handleAdminSort('status')} aria-sort={adminAriaSortValue('status')}>
-                          <span className="th-sort-inner">Status{adminSortArrow('status')}</span>
+                        <th className="th-sortable" aria-sort={adminAriaSortValue('status')}>
+                          <button type="button" className="th-sort-inner" onClick={() => handleAdminSort('status')}>Status{adminSortArrow('status')}</button>
                         </th>
                       </tr>
                     </thead>
@@ -2261,7 +2261,7 @@ export default function Dashboard() {
                         }}
                         role="button"
                         tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter') setSelectedStudentId(s.id); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStudentId(s.id); } }}
                       >
                         <div className="readiness-card-top">
                           <input

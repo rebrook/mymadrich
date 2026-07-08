@@ -1116,7 +1116,7 @@ export default function LogSessionPage() {
               onClick={handleVerseStatusToggle}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleVerseStatusToggle(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleVerseStatusToggle(); } }}
             >
               <h3>Current Progress</h3>
               <span className="section-toggle-count">reference</span>
@@ -1167,7 +1167,7 @@ export default function LogSessionPage() {
               onClick={() => toggleSection('verses')}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') toggleSection('verses'); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('verses'); } }}
             >
               <h3>Verse Progress</h3>
               <span className="section-toggle-count">
@@ -1252,7 +1252,7 @@ export default function LogSessionPage() {
               onClick={() => toggleSection('elements')}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') toggleSection('elements'); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection('elements'); } }}
             >
               <h3>Service Elements</h3>
               <span className="section-toggle-count">
