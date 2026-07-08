@@ -6541,6 +6541,12 @@ select.input {
   margin-bottom: var(--space-4);
 }
 
+.cohort-select {
+  width: auto;
+  min-width: 200px;
+  max-width: 340px;
+}
+
 .admin-toolbar .cohort-select {
   min-width: 160px;
 }
