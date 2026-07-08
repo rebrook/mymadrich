@@ -1914,7 +1914,7 @@ export default function Dashboard() {
 
         {/* Toolbar: cohort selector, lens toggle, search, actions */}
         <div className="admin-landing-toolbar">
-          <div className="admin-landing-toolbar-left">
+          <div className="admin-landing-cohort-row">
             <select
               className="input cohort-select"
               value={adminCohortId}
@@ -1927,7 +1927,10 @@ export default function Dashboard() {
                 </option>
               ))}
             </select>
+            <Link to="/admin" className="btn btn-outline btn-small">Manage</Link>
+          </div>
 
+          <div className="admin-landing-controls-row">
             {/* Lens toggle: Students | By Tutor */}
             <div className="admin-lens-toggle" role="radiogroup" aria-label="View grouping">
               <button
@@ -1953,14 +1956,11 @@ export default function Dashboard() {
             {adminLens === 'students' && adminCohortStudents.length > 5 && (
               <input
                 className="input admin-landing-search"
-                placeholder="Search by name\u2026"
+                placeholder="Search by name&#x2026;"
                 value={adminSearch}
                 onChange={(e) => setAdminSearch(e.target.value)}
               />
             )}
-          </div>
-          <div className="admin-landing-toolbar-right">
-            <Link to="/admin" className="btn btn-outline btn-small">Manage</Link>
           </div>
         </div>
 
