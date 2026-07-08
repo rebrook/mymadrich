@@ -356,7 +356,7 @@ export default function BenchmarkScheduler({ benchmarks, student, onUpsert }) {
 
   return (
     <section className="card bm-scheduler">
-      <div className="card-header">
+      <div className="bm-header">
         <h2>Benchmark Meetings</h2>
       </div>
       <p className="bm-intro">

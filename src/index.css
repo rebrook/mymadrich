@@ -2894,6 +2894,10 @@ select.input {
 
 .session-history-tutor {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;   /* allow it to shrink below its content width */
+  flex: 1;        /* take the remaining row width, then ellipsis */
 }
 
 .session-history-edited {

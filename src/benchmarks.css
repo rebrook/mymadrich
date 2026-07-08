@@ -69,6 +69,15 @@
   margin-top: var(--space-4, 24px);
 }
 
+.bm-header {
+  margin-bottom: var(--space-2, 12px);
+}
+.bm-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: var(--weight-bold, 700);
+}
+
 .bm-intro {
   font-size: 0.88rem;
   color: var(--color-text-secondary, #6b6962);
