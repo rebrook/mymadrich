@@ -5849,9 +5849,9 @@ select.input {
 }
 
 .sfh-save-wrap {
+  position: relative;      /* anchor the hint */
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;     /* wrap height == button height */
 }
 
 .sfh-save-btn {
@@ -5860,9 +5860,12 @@ select.input {
 }
 
 .sfh-save-reason {
+  position: absolute;      /* out of flow, so the row stays centered */
+  top: calc(100% + 2px);
+  right: 0;
+  white-space: nowrap;
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
-  margin-top: 2px;
 }
 
 /* ---- Rating Pills (v2 6.11) ---- */
@@ -6402,6 +6405,16 @@ select.input {
 
   .sfh-mobile-bar .sfh-save-btn {
     min-width: 100px;
+  }
+
+  /* Keep the mobile save bar exactly as before */
+  .sfh-mobile-bar .sfh-save-wrap {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .sfh-mobile-bar .sfh-save-reason {
+    position: static;
+    margin-top: 2px;
   }
 
   /* Add padding to page bottom so content doesn't hide behind fixed bar */
