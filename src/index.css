@@ -196,6 +196,11 @@
   --content-dashboard: 1080px;
   --content-table: 1200px;
 
+  /* ---- Breakpoints (reference only — CSS can't use vars in @media) ---- */
+  --bp-phone: 768px;   /* single-column, stacked, full-width buttons */
+  --bp-tablet: 1023px;  /* matches the nav-chrome flip — use for layout swaps */
+  /* Migrate the 600 / 680 / 719 / 760 one-offs onto these two over time. */
+
   /* ---- Motion ---- */
   /*
    * SANCTIONED MOTION SPEC (exhaustive list)
@@ -9071,13 +9076,16 @@ select.input {
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .desktop-only {
     display: none;
   }
   .mobile-only {
     display: flex;
   }
+}
+
+@media (max-width: 768px) {
 
   /* Cohort hero: single column, centered */
   .cohort-summary-hero {
@@ -9154,6 +9162,14 @@ select.input {
   /* Readiness cards get column flex */
   .readiness-cards {
     margin-top: var(--space-4);
+  }
+
+  /* Touch targets: iOS / WCAG 2.5.5 44px floor */
+  .admin-lens-btn,
+  .session-filter-preset,
+  .alerts-item,
+  .sfh-date-trigger {
+    min-height: 44px;
   }
 }
 
