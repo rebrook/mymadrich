@@ -374,7 +374,7 @@ export default function TutorTab() {
   function renderActions(tutor) {
     if (tutor._type === 'pending') {
       return (
-        <div className="tutor-actions">
+        <div className="action-buttons">
           <button className="btn btn-small btn-outline" onClick={() => openEditModal(tutor)}>
             Edit
           </button>
@@ -389,7 +389,7 @@ export default function TutorTab() {
     }
 
     return (
-      <div className="tutor-actions">
+      <div className="action-buttons">
         <button className="btn btn-small btn-outline" onClick={() => openEditModal(tutor)}>
           Edit
         </button>
@@ -441,12 +441,11 @@ export default function TutorTab() {
     <div>
       <div className="section-header">
         <h3>Tutors</h3>
-      </div>
-
-      <div className="admin-toolbar">
-        <button className="btn btn-primary" onClick={openAddModal}>
-          Add Tutor
-        </button>
+        <div className="action-buttons">
+          <button className="btn btn-primary" onClick={openAddModal}>
+            Add Tutor
+          </button>
+        </div>
       </div>
 
       {inactiveCount > 0 && (

@@ -516,9 +516,17 @@ export default function StudentTab() {
     <div>
       <div className="section-header">
         <h3>Students</h3>
+        <div className="action-buttons">
+          <button className="btn btn-outline" onClick={() => setShowImport(true)}>
+            Import Students
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+            Add Student
+          </button>
+        </div>
       </div>
 
-      {/* Toolbar: cohort selector, Import, Add Student */}
+      {/* Toolbar: cohort selector */}
       <div className="admin-toolbar">
         <select
           className="input cohort-select"
@@ -533,12 +541,6 @@ export default function StudentTab() {
             </option>
           ))}
         </select>
-        <button className="btn btn-outline" onClick={() => setShowImport(true)}>
-          Import Students
-        </button>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          Add Student
-        </button>
       </div>
 
       {/* Search and filter bar */}
