@@ -1288,6 +1288,101 @@ a:hover {
   color: var(--color-text-secondary);
 }
 
+/* ---- Auth Error (ProtectedRoute: profile failed to load) ---- */
+
+.auth-error-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background-color: var(--color-bg);
+}
+
+.auth-error-card {
+  max-width: 420px;
+  width: 100%;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  border-top: 3px solid var(--color-accent);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+}
+
+.auth-error-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-3);
+}
+
+.auth-error-message {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-body);
+  margin-bottom: var(--space-6);
+}
+
+.auth-error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.auth-error-retry {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-inverse);
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+  min-height: 44px;
+}
+
+.auth-error-retry:hover {
+  background: var(--color-primary-light);
+}
+
+.auth-error-retry:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.auth-error-signout {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  text-decoration: underline;
+}
+
+.auth-error-signout:hover {
+  color: var(--color-text);
+}
+
+.auth-error-signout:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 768px) {
+  .auth-error-card {
+    padding: var(--space-6) var(--space-4);
+  }
+}
+
 /* ---- Responsive ----
    Mobile navigation chrome is now defined inline with the elevated shell
    rules above (.mobile-header, .bottom-nav, etc.). The 769-1023px band
