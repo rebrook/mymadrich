@@ -4238,6 +4238,114 @@ select.input {
   }
 }
 
+/* ============================================================
+   INTERNAL NOTES
+   Standing per-student notes, admin/tutor only. Newest-first
+   list with author/timestamp, inline edit, and admin-or-author
+   delete gated behind an inline confirmation.
+   ============================================================ */
+
+.internal-notes-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.internal-notes-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.internal-note {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-inset);
+  border-radius: var(--radius-md);
+}
+
+.internal-note-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.internal-note-author {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.internal-note-dot {
+  color: var(--color-border);
+}
+
+.internal-note-edited {
+  font-style: italic;
+}
+
+.internal-note-text {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+}
+
+.internal-note-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.internal-note-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-warning);
+}
+
+.internal-note-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.internal-note-edit-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.internal-notes-textarea {
+  resize: vertical;
+  font-family: var(--font-body);
+}
+
+.internal-notes-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.internal-notes-composer .btn {
+  align-self: flex-end;
+}
+
+@media (max-width: 768px) {
+  .internal-note-confirm {
+    flex-wrap: wrap;
+  }
+
+  .internal-notes-composer .btn {
+    align-self: stretch;
+  }
+}
+
 
 /* ============================================================
    SESSION C: DASHBOARD V2 COMPONENTS
