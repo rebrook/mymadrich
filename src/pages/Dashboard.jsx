@@ -33,7 +33,7 @@ import InternalNotesSection from '../components/admin/InternalNotesSection';
 import { useInternalNotes } from '../hooks/useInternalNotes';
 import { VerseProgress, FillLegend } from '../components/ui/VerseProgress';
 import { formatVerseRange } from '../utils/verseFormat';
-import { getCurrentCohort } from '../utils/cohorts';
+import { getCurrentCohort, sortCohortsChronologically } from '../utils/cohorts';
 import FamilyReadingSummary from '../components/ui/FamilyReadingSummary';
 import CelebrationMoment from '../components/ui/CelebrationMoment';
 import { DashboardSkeleton } from '../components/ui/SkeletonBlock';
@@ -1955,7 +1955,7 @@ export default function Dashboard() {
               onChange={(e) => { setAdminCohortId(e.target.value); setAdminSearch(''); }}
               aria-label="Filter by cohort"
             >
-              {allCohorts.map((c) => (
+              {sortCohortsChronologically(allCohorts).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}{c.is_active ? '' : ' (archived)'}
                 </option>
@@ -2426,7 +2426,7 @@ export default function Dashboard() {
                         aria-label="Select cohort"
                       >
                         <option value="">Choose cohort...</option>
-                        {allCohorts.map((c) => (
+                        {sortCohortsChronologically(allCohorts).map((c) => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                       </select>

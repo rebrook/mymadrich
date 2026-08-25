@@ -7,6 +7,27 @@
 import { getTodayDateString } from './datetime';
 
 /**
+ * Sorts cohorts chronologically, oldest start_date first. For display
+ * in dropdowns/selectors, where "oldest to newest" is the natural
+ * mental model, distinct from useCohorts()'s raw fetch order (which
+ * is sorted by created_at, newest first, more useful for a management
+ * list where recently-added items are top of mind).
+ *
+ * Cohorts with no start_date sort to the end, after all dated cohorts.
+ *
+ * @param {Array} cohorts
+ * @returns {Array} A new sorted array; does not mutate the input.
+ */
+export function sortCohortsChronologically(cohorts) {
+  return [...(cohorts || [])].sort((a, b) => {
+    if (!a.start_date && !b.start_date) return 0;
+    if (!a.start_date) return 1;
+    if (!b.start_date) return -1;
+    return a.start_date.localeCompare(b.start_date);
+  });
+}
+
+/**
  * Determines which cohort should be treated as "current" by default.
  *
  * `is_active` means "not archived" (a manually-toggled flag), not

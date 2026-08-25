@@ -14,7 +14,7 @@ import {
   PACE_LABELS,
 } from '../utils/paceCalculations';
 import { masteryCountsByType, masteryPercent } from '../utils/mastery';
-import { getCurrentCohort } from '../utils/cohorts';
+import { getCurrentCohort, sortCohortsChronologically } from '../utils/cohorts';
 import { tutorName } from '../utils/people';
 import usePageTitle from '../hooks/usePageTitle';
 import CohortReport from '../components/calendar/CohortReport';
@@ -567,7 +567,7 @@ export default function CohortCalendar() {
                 onChange={(e) => setSelectedCohortId(e.target.value)}
                 aria-label="Select cohort"
               >
-                {cohorts.map((c) => (
+                {sortCohortsChronologically(cohorts).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.is_active ? '' : ' (archived)'}
                   </option>
