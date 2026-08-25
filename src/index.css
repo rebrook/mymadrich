@@ -2683,6 +2683,12 @@ select.input {
   flex-wrap: wrap;
 }
 
+.dash-reading-range {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 var(--space-2);
+}
+
 /* Progress bar */
 .progress-bar-wrapper {
   /* overflow-x only at mobile via media query */

@@ -30,6 +30,7 @@ import PersonRow from '../components/ui/PersonRow';
 import SessionRow from '../components/ui/SessionRow';
 import TutorFirstRunStrip from '../components/ui/TutorFirstRunStrip';
 import { VerseProgress, FillLegend } from '../components/ui/VerseProgress';
+import { formatVerseRange } from '../utils/verseFormat';
 import FamilyReadingSummary from '../components/ui/FamilyReadingSummary';
 import CelebrationMoment from '../components/ui/CelebrationMoment';
 import { DashboardSkeleton } from '../components/ui/SkeletonBlock';
@@ -1421,6 +1422,8 @@ export default function Dashboard() {
                         </a>
                       )}
                     </div>
+
+                    <p className="dash-reading-range">{formatVerseRange(rg.verses)}</p>
 
                     <VerseProgress
                       verses={verseData}
