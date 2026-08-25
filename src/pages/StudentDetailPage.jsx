@@ -14,8 +14,6 @@ import GuardiansSection from '../components/admin/GuardiansSection';
 import BenchmarkScheduler from '../components/admin/BenchmarkScheduler';
 import { useBenchmarks } from '../hooks/useBenchmarks';
 import DvarTorahSection from '../components/admin/DvarTorahSection';
-import InternalNotesSection from '../components/admin/InternalNotesSection';
-import { useInternalNotes } from '../hooks/useInternalNotes';
 
 export default function StudentDetailPage() {
   const { studentId } = useParams();
@@ -49,16 +47,6 @@ export default function StudentDetailPage() {
     benchmarks,
     upsertBenchmark,
   } = useBenchmarks(studentId, isAdmin);
-
-  // Internal notes (admin/tutor only, enforced by RLS)
-  const {
-    notes: internalNotes,
-    loading: internalNotesLoading,
-    error: internalNotesError,
-    addNote: addInternalNote,
-    editNote: editInternalNote,
-    deleteNote: deleteInternalNote,
-  } = useInternalNotes(studentId);
 
   // D'var Torah stage: resolve the updater's display name
   const [dvarUpdaterName, setDvarUpdaterName] = useState(null);
@@ -250,18 +238,6 @@ export default function StudentDetailPage() {
           student={student}
           updaterName={dvarUpdaterName}
           onStageChange={handleDvarStageChange}
-        />
-      )}
-
-      {/* Internal notes — admin/tutor only, never shown to families */}
-      {isAdminOrTutor && (
-        <InternalNotesSection
-          notes={internalNotes}
-          loading={internalNotesLoading}
-          error={internalNotesError}
-          onAddNote={addInternalNote}
-          onEditNote={editInternalNote}
-          onDeleteNote={deleteInternalNote}
         />
       )}
 
