@@ -1353,7 +1353,6 @@ export default function Dashboard() {
 
   // ---- Render helper: internal notes (admin/tutor only) ----
   function renderInternalNotes() {
-    console.log('DEBUG renderInternalNotes:', { role, isAdminOrTutor, selectedStudentId });
     if (!isAdminOrTutor || !selectedStudentId) return null;
     return (
       <InternalNotesSection

@@ -16,7 +16,6 @@ export function useInternalNotes(studentId) {
   const [error, setError] = useState(null);
 
   const fetchNotes = useCallback(async () => {
-    console.log('DEBUG useInternalNotes fetchNotes called with studentId:', studentId);
     if (!studentId) {
       setNotes([]);
       setLoading(false);
