@@ -4180,67 +4180,35 @@ select.input {
 }
 
 /* ============================================================
-   TIME COMBOBOX
-   Single text input + filtered dropdown list of 15-minute time
-   presets. Mirrors the .student-switcher dropdown pattern (same
-   surface, border, shadow, z-index, and 44px touch targets).
+   TIME SELECT
+   Three plain <select> elements (hour / minute / AM-PM). Minutes
+   are restricted to 15-minute increments via a fixed option list,
+   and native <select> doesn't wrap past the first/last option the
+   way a spinner does.
    ============================================================ */
 
-.time-combobox {
-  position: relative;
-  width: 100%;
-}
-
-.time-combobox-input {
-  cursor: text;
-}
-
-.time-combobox-list {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  left: 0;
-  right: 0;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: var(--space-2) 0;
-  list-style: none;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  z-index: 300;
-}
-
-.time-combobox-option {
+.time-select-group {
   display: flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  min-height: 44px;
-  font-size: var(--text-sm);
-  color: var(--color-text);
-  cursor: pointer;
+  gap: var(--space-2);
 }
 
-.time-combobox-option:hover,
-.time-combobox-option-highlighted {
-  background-color: var(--color-surface-hover);
-}
-
-.time-combobox-option-selected {
-  background-color: var(--color-surface-inset);
-  font-weight: var(--weight-semibold);
-}
-
-.time-combobox-empty {
-  padding: var(--space-4) var(--space-3);
+.time-select-hour,
+.time-select-minute,
+.time-select-period {
+  width: auto;
+  min-width: 0;
+  flex: 1;
+  padding: var(--space-2) var(--space-2);
   text-align: center;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
+}
+
+.time-select-period {
+  flex: 0.8;
 }
 
 @media (max-width: 768px) {
-  .time-combobox-list {
-    max-height: 240px;
+  .time-select-group {
+    gap: var(--space-1);
   }
 }
 
