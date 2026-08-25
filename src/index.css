@@ -7784,6 +7784,19 @@ select.input {
 
 /* ---- Verse grid ---- */
 
+.verse-chapter-group + .verse-chapter-group {
+  margin-top: var(--space-3);
+}
+
+.verse-chapter-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  margin-bottom: var(--space-1);
+}
+
 .verse-grid {
   display: flex;
   flex-wrap: wrap;

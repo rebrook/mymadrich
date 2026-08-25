@@ -85,6 +85,58 @@ function SolidStar({ size = 10, className = '' }) {
 }
 
 /* ================================================================ */
+/*  Chapter grouping (verse numbers instead of sequential position)  */
+/* ================================================================ */
+
+/**
+ * Parse "Book Chapter:Verse" into parts. Book name may contain
+ * spaces (e.g. "1 Samuel"). Returns null if the ref doesn't match
+ * the expected shape.
+ */
+function parseVerseRef(ref) {
+  if (!ref) return null;
+  const match = ref.match(/^(.+)\s+(\d+):(\d+)$/);
+  if (!match) return null;
+  return { book: match[1], chapter: match[2], verse: match[3] };
+}
+
+/**
+ * Group a flat verses array into chapter groups, in original order.
+ * Always groups, even for a single chapter, so the chapter label is
+ * a consistent element regardless of how many chapters a reading
+ * spans (deliberate: consistency over conditional UI).
+ *
+ * Falls back to the verse's position (1-based) as its displayed
+ * number if the ref doesn't parse, rather than breaking the grid.
+ */
+function groupVersesByChapter(verses) {
+  const groups = [];
+  let currentKey = null;
+  let currentGroup = null;
+
+  verses.forEach((verse, index) => {
+    const parsed = parseVerseRef(verse.ref);
+    const key = parsed ? `${parsed.book} ${parsed.chapter}` : `__unparsed_${index}`;
+
+    if (key !== currentKey) {
+      currentGroup = {
+        label: parsed ? `Chapter ${parsed.chapter}` : null,
+        items: [],
+      };
+      groups.push(currentGroup);
+      currentKey = key;
+    }
+
+    currentGroup.items.push({
+      verse,
+      verseNumber: parsed ? parsed.verse : String(index + 1),
+    });
+  });
+
+  return groups;
+}
+
+/* ================================================================ */
 /*  VerseProgress                                                    */
 /* ================================================================ */
 
@@ -150,55 +202,63 @@ export function VerseProgress({
   }
 
   const selectedVerse = verses.find((v) => v.id === selectedId);
+  const chapterGroups = groupVersesByChapter(verses);
 
   return (
     <div className={className}>
-      <div className="verse-grid">
-        {verses.map((verse, index) => {
-          const fill = getFillHeight(verse.quality);
-          const gold = isGoldVerse(verse.quality, verse.status, verse.readingType);
-          const halfGold = isHalfGoldVerse(verse.quality, verse.status, verse.readingType);
-          const lit = isLitVerse(verse.quality);
-          const selected = selectedId === verse.id;
+      {chapterGroups.map((group, groupIndex) => (
+        <div key={groupIndex} className="verse-chapter-group">
+          {group.label && (
+            <p className="verse-chapter-label">{group.label}</p>
+          )}
+          <div className="verse-grid">
+            {group.items.map(({ verse, verseNumber }) => {
+              const fill = getFillHeight(verse.quality);
+              const gold = isGoldVerse(verse.quality, verse.status, verse.readingType);
+              const halfGold = isHalfGoldVerse(verse.quality, verse.status, verse.readingType);
+              const lit = isLitVerse(verse.quality);
+              const selected = selectedId === verse.id;
 
-          return (
-            <button
-              key={verse.id}
-              type="button"
-              className={[
-                'verse-cell',
-                gold ? 'verse-cell-gold' : '',
-                halfGold ? 'verse-cell-half-gold' : '',
-                lit ? 'verse-cell-lit' : '',
-                selected ? 'verse-cell-selected' : '',
-              ].filter(Boolean).join(' ')}
-              aria-label={`${verse.ref}: ${getVerseLabel(verse)}`}
-              onClick={() => handleCellClick(verse)}
-            >
-              <span
-                className="verse-cell-fill"
-                style={{ height: `${fill}%` }}
-              />
-              <span className="verse-cell-num">{index + 1}</span>
-              {gold && (
-                <span className="verse-cell-icon" aria-hidden="true">
-                  <SolidStar size={9} />
-                </span>
-              )}
-              {halfGold && (
-                <span className="verse-cell-icon" aria-hidden="true">
-                  <OutlineStar size={9} />
-                </span>
-              )}
-              {!gold && !halfGold && fill === 100 && (
-                <span className="verse-cell-icon" aria-hidden="true">
-                  {'\u2713'}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+              return (
+                <button
+                  key={verse.id}
+                  type="button"
+                  className={[
+                    'verse-cell',
+                    gold ? 'verse-cell-gold' : '',
+                    halfGold ? 'verse-cell-half-gold' : '',
+                    lit ? 'verse-cell-lit' : '',
+                    selected ? 'verse-cell-selected' : '',
+                  ].filter(Boolean).join(' ')}
+                  aria-label={`${verse.ref}: ${getVerseLabel(verse)}`}
+                  onClick={() => handleCellClick(verse)}
+                >
+                  <span
+                    className="verse-cell-fill"
+                    style={{ height: `${fill}%` }}
+                  />
+                  <span className="verse-cell-num">{verseNumber}</span>
+                  {gold && (
+                    <span className="verse-cell-icon" aria-hidden="true">
+                      <SolidStar size={9} />
+                    </span>
+                  )}
+                  {halfGold && (
+                    <span className="verse-cell-icon" aria-hidden="true">
+                      <OutlineStar size={9} />
+                    </span>
+                  )}
+                  {!gold && !halfGold && fill === 100 && (
+                    <span className="verse-cell-icon" aria-hidden="true">
+                      {'\u2713'}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
 
       {/* Rate mode: inline rater strip */}
       {isRate && selectedVerse && (
