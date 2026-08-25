@@ -23,7 +23,7 @@ import InlineRater from '../components/session/InlineRater';
 import HomeworkBuilder from '../components/session/HomeworkBuilder';
 import UnsavedChangesGuard from '../components/session/UnsavedChangesGuard';
 import { VerseProgress, FillLegend } from '../components/ui/VerseProgress';
-import TimeSelect from '../components/ui/TimeSelect';
+import TimeCombobox from '../components/ui/TimeCombobox';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -1409,18 +1409,18 @@ export default function LogSessionPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Start time</label>
-                <TimeSelect
+                <TimeCombobox
                   value={nextSessionTime}
                   onChange={handleNextTimeChange}
-                  ariaLabelPrefix="Start time"
+                  ariaLabel="Start time"
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">End time</label>
-                <TimeSelect
+                <TimeCombobox
                   value={nextSessionEndTime}
                   onChange={handleNextEndTimeChange}
-                  ariaLabelPrefix="End time"
+                  ariaLabel="End time"
                 />
               </div>
             </div>

@@ -8,7 +8,7 @@ import {
 } from '../../utils/constants';
 import { formatSessionTime } from '../../utils/datetime';
 import Modal from '../ui/Modal';
-import TimeSelect from '../ui/TimeSelect';
+import TimeCombobox from '../ui/TimeCombobox';
 
 /**
  * Format a Date object as YYYY-MM-DD for input[type=date] value.
@@ -184,18 +184,18 @@ function BenchmarkEditModal({ benchmark, mitzvahDate, onSave, onClose }) {
           <div className="bm-field-row">
             <div className="bm-field">
               <span className="bm-field-label">Start time</span>
-              <TimeSelect
+              <TimeCombobox
                 value={startTime}
                 onChange={handleStartTimeChange}
-                ariaLabelPrefix="Start time"
+                ariaLabel="Start time"
               />
             </div>
             <div className="bm-field">
               <span className="bm-field-label">End time</span>
-              <TimeSelect
+              <TimeCombobox
                 value={endTime}
                 onChange={setEndTime}
-                ariaLabelPrefix="End time"
+                ariaLabel="End time"
               />
             </div>
           </div>
