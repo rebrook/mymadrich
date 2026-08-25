@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useStudents, fetchTutors } from '../../hooks/useStudents';
 import { useCohorts } from '../../hooks/useCohorts';
+import { getCurrentCohort, sortCohortsChronologically } from '../../utils/cohorts';
 import { calculatePace, PACE_STATUS, getPaceRationale } from '../../utils/paceCalculations';
 import { formatDateCompact } from '../../utils/datetime';
 import { tutorName, tutorListLabel } from '../../utils/people';
@@ -87,7 +88,7 @@ export default function StudentTab() {
   const navigate = useNavigate();
   const { cohorts } = useCohorts();
 
-  // Default to the first active cohort
+  // Default to the current cohort (active + date-aware)
   const activeCohorts = cohorts.filter((c) => c.is_active);
   const [selectedCohortId, setSelectedCohortId] = useState('');
   const { students, loading, error, createStudent, archiveStudent, restoreStudent } = useStudents(
@@ -97,9 +98,10 @@ export default function StudentTab() {
   // Set default cohort once cohorts load
   useEffect(() => {
     if (!selectedCohortId && activeCohorts.length > 0) {
-      setSelectedCohortId(activeCohorts[0].id);
+      const current = getCurrentCohort(cohorts);
+      if (current) setSelectedCohortId(current.id);
     }
-  }, [activeCohorts, selectedCohortId]);
+  }, [activeCohorts, cohorts, selectedCohortId]);
 
   // Tutor list for dropdown
   const [tutors, setTutors] = useState([]);
@@ -535,7 +537,7 @@ export default function StudentTab() {
           aria-label="Filter by cohort"
         >
           <option value="">All Cohorts</option>
-          {cohorts.map((c) => (
+          {sortCohortsChronologically(cohorts).map((c) => (
             <option key={c.id} value={c.id}>
               {c.name} {c.is_active ? '' : '(archived)'}
             </option>
