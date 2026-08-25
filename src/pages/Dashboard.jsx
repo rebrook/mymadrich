@@ -29,6 +29,8 @@ import { ElementGroup } from '../components/ui/ElementRow';
 import PersonRow from '../components/ui/PersonRow';
 import SessionRow from '../components/ui/SessionRow';
 import TutorFirstRunStrip from '../components/ui/TutorFirstRunStrip';
+import InternalNotesSection from '../components/admin/InternalNotesSection';
+import { useInternalNotes } from '../hooks/useInternalNotes';
 import { VerseProgress, FillLegend } from '../components/ui/VerseProgress';
 import { formatVerseRange } from '../utils/verseFormat';
 import FamilyReadingSummary from '../components/ui/FamilyReadingSummary';
@@ -134,6 +136,17 @@ export default function Dashboard() {
   // Role checks
   const isAdminOrTutor = role === ROLES.ADMIN || role === ROLES.TUTOR;
   const isStudentOrParent = role === ROLES.STUDENT || role === ROLES.PARENT;
+
+  // Internal notes (admin/tutor only, enforced by RLS). Only fetch for
+  // the currently selected student, and only for roles that can see them.
+  const {
+    notes: internalNotes,
+    loading: internalNotesLoading,
+    error: internalNotesError,
+    addNote: addInternalNote,
+    editNote: editInternalNote,
+    deleteNote: deleteInternalNote,
+  } = useInternalNotes(isAdminOrTutor ? selectedStudentId : null);
 
   // Shabbat awareness (decorative banner + soft button de-emphasis)
   const isShabbat = useShabbat();
@@ -1338,6 +1351,22 @@ export default function Dashboard() {
     );
   }
 
+  // ---- Render helper: internal notes (admin/tutor only) ----
+  function renderInternalNotes() {
+    console.log('DEBUG renderInternalNotes:', { role, isAdminOrTutor, selectedStudentId });
+    if (!isAdminOrTutor || !selectedStudentId) return null;
+    return (
+      <InternalNotesSection
+        notes={internalNotes}
+        loading={internalNotesLoading}
+        error={internalNotesError}
+        onAddNote={addInternalNote}
+        onEditNote={editInternalNote}
+        onDeleteNote={deleteInternalNote}
+      />
+    );
+  }
+
   // ---- Render helper: inline legend ----
   // ---- Render helper: reading progress card ----
   function renderReadingProgress() {
@@ -1829,6 +1858,7 @@ export default function Dashboard() {
           <div className="dash-main">
             {renderReadingProgress()}
             {renderServiceElements()}
+            {renderInternalNotes()}
           </div>
           <div className="dash-rail">
             {renderSessionsCard()}
@@ -1849,6 +1879,7 @@ export default function Dashboard() {
             <div className="dash-main">
               {renderReadingProgress()}
               {renderServiceElements()}
+              {renderInternalNotes()}
             </div>
             <div className="dash-rail">
               {renderBenchmarkUpcoming(true)}
