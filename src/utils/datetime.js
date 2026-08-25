@@ -6,6 +6,25 @@
  */
 
 /**
+ * Returns today's date as "YYYY-MM-DD" using the browser's LOCAL date,
+ * not UTC. Deliberately avoids `new Date().toISOString()`, which reports
+ * the UTC date and can be off by one near midnight in US time zones
+ * (e.g. 11pm Eastern is already "tomorrow" in UTC).
+ *
+ * Use this instead of toISOString() wherever "today" is compared against
+ * ISO date-only strings from the database (start_date, end_date, etc.).
+ *
+ * @returns {string} Local date in "YYYY-MM-DD" format.
+ */
+export function getTodayDateString() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * Formats an ISO date string for display.
  *
  * @param {string|null} isoDate - ISO date string ("2026-07-12") or

@@ -14,6 +14,7 @@ import {
   PACE_LABELS,
 } from '../utils/paceCalculations';
 import { masteryCountsByType, masteryPercent } from '../utils/mastery';
+import { getCurrentCohort } from '../utils/cohorts';
 import { tutorName } from '../utils/people';
 import usePageTitle from '../hooks/usePageTitle';
 import CohortReport from '../components/calendar/CohortReport';
@@ -46,9 +47,11 @@ export default function CohortCalendar() {
     if (validStored) {
       setSelectedCohortId(stored);
     } else {
-      // Active cohort first, then fall back to first in list
-      const active = cohorts.find((c) => c.is_active) || cohorts[0];
-      setSelectedCohortId(active.id);
+      // Date-aware "current" cohort; if none qualifies, leave
+      // selectedCohortId null so the dropdown prompts a manual pick
+      // rather than forcing an arbitrary selection.
+      const current = getCurrentCohort(cohorts);
+      if (current) setSelectedCohortId(current.id);
     }
   }, [cohorts, selectedCohortId]);
 

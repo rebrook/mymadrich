@@ -33,6 +33,7 @@ import InternalNotesSection from '../components/admin/InternalNotesSection';
 import { useInternalNotes } from '../hooks/useInternalNotes';
 import { VerseProgress, FillLegend } from '../components/ui/VerseProgress';
 import { formatVerseRange } from '../utils/verseFormat';
+import { getCurrentCohort } from '../utils/cohorts';
 import FamilyReadingSummary from '../components/ui/FamilyReadingSummary';
 import CelebrationMoment from '../components/ui/CelebrationMoment';
 import { DashboardSkeleton } from '../components/ui/SkeletonBlock';
@@ -248,11 +249,11 @@ export default function Dashboard() {
     localStorage.setItem('mymadrich:family_selected_student', selectedStudentId);
   }, [selectedStudentId, isStudentOrParent]);
 
-  // ---- Admin: default to first active cohort ----
+  // ---- Admin: default to current cohort (active + date-aware) ----
   useEffect(() => {
     if (role !== ROLES.ADMIN || adminCohortId || allCohorts.length === 0) return;
-    const active = allCohorts.filter((c) => c.is_active);
-    if (active.length > 0) setAdminCohortId(active[0].id);
+    const current = getCurrentCohort(allCohorts);
+    if (current) setAdminCohortId(current.id);
   }, [role, adminCohortId, allCohorts]);
 
   // ---- Load enrichment data for admin/tutor ----

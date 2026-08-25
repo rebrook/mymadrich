@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { getCurrentCohort } from '../../utils/cohorts';
 
 const COLLAPSE_KEY = 'mymadrich:admin_checklist_collapsed';
 const COHORT_KEY = 'mymadrich:admin_checklist_last_cohort_id';
@@ -21,7 +22,7 @@ export default function SetupChecklist({ cohorts, onSwitchTab, userId }) {
   const navigate = useNavigate();
 
   // The active cohort drives the checklist context
-  const activeCohort = cohorts.find((c) => c.is_active) || null;
+  const activeCohort = getCurrentCohort(cohorts);
   const activeCohortId = activeCohort?.id || null;
 
   // Dismissal state (persisted on profiles table)

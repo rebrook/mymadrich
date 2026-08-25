@@ -25,6 +25,7 @@ import UnsavedChangesGuard from '../components/session/UnsavedChangesGuard';
 import { VerseProgress, FillLegend } from '../components/ui/VerseProgress';
 import TimeSelect from '../components/ui/TimeSelect';
 import { formatVerseRange } from '../utils/verseFormat';
+import { getCurrentCohort } from '../utils/cohorts';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -114,7 +115,7 @@ export default function LogSessionPage() {
 
   // Cohort-scoped picker (Session 14)
   const { cohorts } = useCohorts();
-  const activeCohort = cohorts.find((c) => c.is_active) || null;
+  const activeCohort = getCurrentCohort(cohorts);
   const activeCohortId = activeCohort?.id || null;
 
   // Cohort mismatch confirm modal
