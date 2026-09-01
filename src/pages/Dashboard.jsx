@@ -2274,9 +2274,21 @@ export default function Dashboard() {
                               )}
                             </td>
                             <td>
-                              <span className={`badge ${getStatusBadgeClass(s.status)}`}>
-                                {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                              </span>
+                              {(() => {
+                                const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < new Date();
+                                // Display-only override: an "active" student whose date has
+                                // passed reads as Complete here, without changing the real
+                                // status field. Deferred/withdrawn/completed are left as-is —
+                                // those are deliberate coordinator decisions.
+                                if (s.status === 'active' && mitzvahHasPassed) {
+                                  return <span className="badge badge-completed">Complete</span>;
+                                }
+                                return (
+                                  <span className={`badge ${getStatusBadgeClass(s.status)}`}>
+                                    {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                                  </span>
+                                );
+                              })()}
                             </td>
                           </tr>
                         );
@@ -2293,6 +2305,7 @@ export default function Dashboard() {
                     const pct = prog ? masteryPercent(prog.mastered, prog.total) : 0;
                     const paceStatus = paceMap[s.id]?.pace?.status;
                     const stale = isStaleSession(lastDate);
+                    const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < new Date();
                     const isChecked = bulkSelectedIds.has(s.id);
 
                     return (
@@ -2335,8 +2348,10 @@ export default function Dashboard() {
                           {paceStatus && <PaceBadge status={paceStatus} rationale={getPaceRationale(paceMap[s.id]?.pace)} />}
                         </div>
                         <div className="readiness-card-row">
-                          <span className={stale ? 'session-stale' : ''}>
-                            {stale ? 'Needs a session' : (s.status.charAt(0).toUpperCase() + s.status.slice(1))}
+                          <span className={stale && !mitzvahHasPassed ? 'session-stale' : ''}>
+                            {s.status === 'active' && mitzvahHasPassed
+                              ? 'Complete'
+                              : stale ? 'Needs a session' : (s.status.charAt(0).toUpperCase() + s.status.slice(1))}
                           </span>
                           <span><b>{pct}%</b> {prog && prog.total > 0 ? formatMasterySummary(prog) : 'learned with trope'}</span>
                         </div>
