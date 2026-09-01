@@ -839,9 +839,21 @@ export default function StudentTab() {
                   </td>
                   <td data-label="Status">
                     <div className="status-cell-with-action">
-                      <span className={`badge ${getStatusBadgeClass(s.status)}`}>
-                        {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                      </span>
+                      {(() => {
+                        const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < new Date();
+                        // Display-only override: an "active" student whose date has
+                        // passed reads as Complete here, without changing the real
+                        // status field. Archived/deferred/withdrawn/completed are
+                        // left as-is — those are deliberate coordinator decisions.
+                        if (s.status === 'active' && mitzvahHasPassed) {
+                          return <span className="badge badge-completed">Complete</span>;
+                        }
+                        return (
+                          <span className={`badge ${getStatusBadgeClass(s.status)}`}>
+                            {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                          </span>
+                        );
+                      })()}
                       {s.status === 'archived' ? (
                         <button
                           className="btn btn-small btn-outline"
