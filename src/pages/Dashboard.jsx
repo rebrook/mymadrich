@@ -9,7 +9,7 @@ import {
   DVAR_STAGE,
   getDvarFamilyLine,
 } from '../utils/constants';
-import { calculatePace, calculateElementsSummary, formatTargetDate, PACE_STATUS, PACE_COLORS, getPaceRationale } from '../utils/paceCalculations';
+import { calculatePace, calculateElementsSummary, formatTargetDate, formatWeeksRemaining, PACE_STATUS, PACE_COLORS, getPaceRationale } from '../utils/paceCalculations';
 import { tutorName, tutorListLabel } from '../utils/people';
 import { formatDateCompact, formatDateShort, formatDayDate, formatSessionTime, formatSessionTimeRange } from '../utils/datetime';
 import { buildNudgeTutorMailto, buildCaseloadNudgeMailto, resolvePrimaryGuardianContact } from '../utils/mailto';
@@ -1208,20 +1208,21 @@ export default function Dashboard() {
           const projStr = pace.projectedCompletionDate ? formatTargetDate(pace.projectedCompletionDate) : '';
           paceMeta = projStr ? `Projected: ${projStr}` : '';
           if (pace.weeksRemaining !== undefined) {
-            paceMeta += paceMeta ? ` \u00B7 ${pace.weeksRemaining} wks left` : `${pace.weeksRemaining} wks left`;
+            const remaining = `${formatWeeksRemaining(pace.weeksRemaining)} left`;
+            paceMeta += paceMeta ? ` \u00B7 ${remaining}` : remaining;
           }
           paceMetaColor = PACE_COLORS[pace.status];
         } else if (pace.status === PACE_STATUS.ON_TRACK || pace.status === PACE_STATUS.AHEAD) {
           paceMeta = `Target: ${formatTargetDate(pace.targetDate)}`;
           if (pace.weeksRemaining !== undefined) {
-            paceMeta += ` \u00B7 ${pace.weeksRemaining} wks left`;
+            paceMeta += ` \u00B7 ${formatWeeksRemaining(pace.weeksRemaining)} left`;
           }
         } else if (pace.status === PACE_STATUS.COMPLETED) {
           paceMeta = `All ${pace.totalCount} verses learned with trope`;
         } else if (pace.status === PACE_STATUS.NOT_STARTED) {
           paceMeta = 'No sessions yet';
           if (pace.weeksRemaining !== undefined) {
-            paceMeta += ` \u00B7 ${pace.weeksRemaining} wks left`;
+            paceMeta += ` \u00B7 ${formatWeeksRemaining(pace.weeksRemaining)} left`;
           }
         } else if (pace.status === PACE_STATUS.NO_VERSES) {
           paceMeta = 'No verses assigned';
@@ -1235,7 +1236,7 @@ export default function Dashboard() {
         <StatTile
           key="pace"
           label={<>Learning Pace <HelpTip text="Pace is calculated by comparing verses learned with trope against a linear progression toward the target completion date. Visible to admins and tutors only." /></>}
-          value={pace ? <PaceBadge status={pace.status} size="lg" /> : '\u2014'}
+          value={pace ? <PaceBadge status={pace.status} size="lg" rationale={getPaceRationale(pace)} /> : '\u2014'}
           meta={paceMeta}
           metaColor={paceMetaColor}
         />

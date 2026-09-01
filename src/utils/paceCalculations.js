@@ -304,6 +304,33 @@ export function calculateElementsSummary(masteredElementCount, startedElementCou
 // ---- Formatting helpers ----
 
 /**
+ * Formats a fractional weeks-remaining value into natural phrasing.
+ * Under 2 weeks: shows days ("4 days"), since nobody actually says
+ * "0.5 weeks" or "1.3 weeks" out loud. 2 weeks or more: shows whole
+ * weeks, rounded ("3 weeks"), since a decimal week count is equally
+ * unnatural at longer distances.
+ *
+ * Returns just the quantity + unit (e.g. "4 days", "3 weeks") with no
+ * "left"/"remaining"/"out" suffix — callers append whatever fits their
+ * sentence.
+ *
+ * @param {number|null} weeksRemaining
+ * @returns {string}
+ */
+export function formatWeeksRemaining(weeksRemaining) {
+  if (weeksRemaining == null) return '';
+  if (weeksRemaining <= 0) return 'due now';
+
+  if (weeksRemaining < 2) {
+    const days = Math.max(1, Math.round(weeksRemaining * 7));
+    return `${days} day${days === 1 ? '' : 's'}`;
+  }
+
+  const wholeWeeks = Math.round(weeksRemaining);
+  return `${wholeWeeks} week${wholeWeeks === 1 ? '' : 's'}`;
+}
+
+/**
  * Formats a date as a short readable string (e.g., "Oct 15, 2026").
  */
 export function formatTargetDate(date) {
@@ -379,7 +406,7 @@ export function getPaceRationale(paceResult) {
 
   switch (status) {
     case PACE_STATUS.ON_TRACK:
-      return `On track: ${masteredCount} of ${totalCount} learned with trope (${pctActual}%) against ${pctExpected}% expected. Target ${targetStr}, ${weeksRemaining} wks remaining.`;
+      return `On track: ${masteredCount} of ${totalCount} learned with trope (${pctActual}%) against ${pctExpected}% expected. Target ${targetStr}, ${formatWeeksRemaining(weeksRemaining)} remaining.`;
 
     case PACE_STATUS.AHEAD:
       return `Ahead of schedule: ${masteredCount} of ${totalCount} learned with trope (${pctActual}%) vs. ${pctExpected}% expected. Well positioned for ${targetStr}.`;
@@ -402,7 +429,7 @@ export function getPaceRationale(paceResult) {
     }
 
     case PACE_STATUS.NOT_STARTED:
-      return `Not started: ${totalCount} verses assigned, no sessions yet. Target ${targetStr} is ${weeksRemaining} weeks out.`;
+      return `Not started: ${totalCount} verses assigned, no sessions yet. Target ${targetStr} is ${formatWeeksRemaining(weeksRemaining)} out.`;
 
     case PACE_STATUS.COMPLETED:
       return `All ${totalCount} verses learned with trope.`;

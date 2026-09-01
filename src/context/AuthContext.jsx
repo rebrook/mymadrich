@@ -89,7 +89,22 @@ export function AuthProvider({ children }) {
       processInvitationInBackground(userId);
     } catch (err) {
       console.error('Error fetching profile:', err.message);
-      setProfile(null);
+      // Only clear profile if we don't already have a working one. This
+      // function re-runs on every onAuthStateChange event, including
+      // TOKEN_REFRESHED (which fires periodically, and often right when
+      // a laptop wakes from sleep or a backgrounded tab regains focus —
+      // exactly when a transient network blip is most likely). Without
+      // this guard, a blip during a background refresh would wipe an
+      // already-authenticated session's profile back to null, forcing
+      // ProtectedRoute into its "couldn't load your profile" error even
+      // though the user was actively using the app moments before.
+      setProfile((prev) => {
+        if (prev) {
+          console.warn('Profile refresh failed but keeping existing profile (likely a transient blip):', err.message);
+          return prev;
+        }
+        return null;
+      });
     } finally {
       setLoading(false);
     }
