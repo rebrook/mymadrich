@@ -683,7 +683,14 @@ export default function CohortCalendar() {
                         )}
                       </div>
                     )}
-                    {!row.reading && (
+                    {!row.reading && row.date < new Date() && (
+                      <div className="cc-parashah">
+                        <span className="cc-parashah-name cc-parashah-complete">
+                          B{'\u2019'}nai mitzvah complete
+                        </span>
+                      </div>
+                    )}
+                    {!row.reading && row.date >= new Date() && (
                       <div className="cc-parashah">
                         <span className="cc-parashah-name cc-parashah-pending">
                           Parashah pending assignment

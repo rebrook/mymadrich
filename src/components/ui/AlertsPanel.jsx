@@ -228,6 +228,13 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
       const lastSession = lastSessionMap[s.id];
       const progress = progressMap[s.id];
 
+      // Once the mitzvah date has passed, the event happened — treat it
+      // as a celebration, not something to audit. Pace, staleness, and
+      // missing-work alerts no longer apply. ("upcoming" already can't
+      // fire here since it requires daysUntil > 0.)
+      const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < today;
+      if (mitzvahHasPassed) return;
+
       if (paceStatus === 'critical') {
         alerts.push({ type: 'critical', student: s, detail: paceData.pace, progress });
       }

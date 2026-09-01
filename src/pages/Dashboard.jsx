@@ -739,7 +739,14 @@ export default function Dashboard() {
         masteredVerse += prog.mastered;
       }
       const paceStatus = paceMap[s.id]?.pace?.status;
-      if (paceStatus === 'on_track' || paceStatus === 'ahead') counts.on_track += 1;
+      const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < today;
+
+      // Once the mitzvah date has passed, treat as Completed regardless of
+      // actual pace/progress — the event happened, that's a celebration,
+      // not an audit. Pace-based buckets no longer apply.
+      if (mitzvahHasPassed) {
+        counts.completed += 1;
+      } else if (paceStatus === 'on_track' || paceStatus === 'ahead') counts.on_track += 1;
       else if (paceStatus === 'behind') counts.behind += 1;
       else if (paceStatus === 'critical' || paceStatus === 'past_due') counts.critical += 1;
       else if (paceStatus === 'completed') counts.completed += 1;
@@ -845,9 +852,14 @@ export default function Dashboard() {
           }
         }
 
-        // Pace buckets
+        // Pace buckets — once the mitzvah date has passed, don't count
+        // toward critical/behind (consistent with the cohort hero tiles);
+        // route to 'other' (not rendered as a badge) rather than
+        // penalizing the tutor's problem score for a completed mitzvah.
         const pStatus = paceMap[s.id]?.pace?.status;
-        if (pStatus === 'critical' || pStatus === 'past_due') group.paceBuckets.critical += 1;
+        const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < new Date();
+        if (mitzvahHasPassed) group.paceBuckets.other += 1;
+        else if (pStatus === 'critical' || pStatus === 'past_due') group.paceBuckets.critical += 1;
         else if (pStatus === 'behind') group.paceBuckets.behind += 1;
         else if (pStatus === 'on_track') group.paceBuckets.on_track += 1;
         else if (pStatus === 'ahead') group.paceBuckets.ahead += 1;
