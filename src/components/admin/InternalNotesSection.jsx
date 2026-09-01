@@ -4,9 +4,9 @@ import { ROLES } from '../../utils/constants';
 import { formatSessionDate } from '../../utils/datetime';
 
 /**
- * Internal Notes — standing, per-student notes for madrachim/coordinator.
+ * Internal Notes — standing, per-student notes for Madrichim/coordinator.
  * Never shown to parent/student views (enforced by RLS + the
- * isAdminOrTutor gate in StudentDetailPage.jsx).
+ * isAdminOrTutor gate in Dashboard.jsx).
  *
  * - Newest-first list, author + timestamp per entry.
  * - "(edited)" tag shown when a note has been edited.
@@ -88,7 +88,7 @@ export default function InternalNotesSection({ notes, loading, error, onAddNote,
     <section className="card internal-notes">
       <div className="section-header">
         <h3>Internal Notes</h3>
-        <span className="internal-notes-hint">Visible to madrachim and coordinator only</span>
+        <span className="internal-notes-hint">Visible to Madrichim and coordinator only</span>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
