@@ -950,7 +950,10 @@ function AddReadingModal({ hebcalData, resolvedData, student, existingReadings, 
           book: first.book,
           beginRef: first.beginRef,
           endRef: last.endRef,
-          // For multi-book Haftarot, store the full raw ref string
+          // For multi-segment Haftarot, preserve the first segment's
+          // endRef so the Sefaria URL links to a valid single-book range.
+          firstSegEndRef: segments.length > 1 ? first.endRef : null,
+          // For multi-segment Haftarot, store the full raw ref string
           // so the reading.reference column preserves the original.
           rawRef: segments.length > 1 || first.book !== last.book ? haftaraRef : null,
           verses: verses.map((v) => ({ ...v, selected: true })),
@@ -988,7 +991,9 @@ function AddReadingModal({ hebcalData, resolvedData, student, existingReadings, 
           portion_name_hebrew: portionNameHebrew,
           aliyah: sel.aliyahName || null,
           reference: sel.rawRef || buildReferenceString(sel.book, sel.beginRef, sel.endRef),
-          sefaria_url: buildSefariaUrl(sel.book, sel.beginRef, sel.endRef),
+          sefaria_url: sel.rawRef
+            ? buildSefariaUrl(sel.book, sel.beginRef, sel.firstSegEndRef || sel.endRef)
+            : buildSefariaUrl(sel.book, sel.beginRef, sel.endRef),
           sort_order: existingReadings.length + Object.keys(verseSelections).indexOf(key) + 1,
           occasion: occasion || 'shabbat',
         };
