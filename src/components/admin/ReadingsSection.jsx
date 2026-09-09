@@ -1255,7 +1255,9 @@ function AddReadingModal({ hebcalData, resolvedData, student, existingReadings, 
         <div key={key} style={{ marginBottom: 'var(--space-4)' }}>
           <h4>
             {sel.type === 'torah' ? `${sel.aliyahName} (Torah)` : 'Haftarah'}{' '}
-            <span className="form-hint">{sel.book} {sel.beginRef}-{sel.endRef}</span>
+            <span className="form-hint">
+              {sel.rawRef || `${sel.book} ${sel.beginRef}-${sel.endRef}`}
+            </span>
           </h4>
           <div className="verse-checkbox-grid">
             {sel.verses.map((v, i) => (
