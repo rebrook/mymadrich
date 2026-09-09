@@ -13,6 +13,8 @@ import {
   buildReferenceString,
   buildSefariaUrl,
   parseHaftarahReference,
+  parseHaftarahSegments,
+  expandHaftarahVerses,
   BOOK_NAMES,
 } from '../../utils/hebcal';
 
@@ -932,16 +934,25 @@ function AddReadingModal({ hebcalData, resolvedData, student, existingReadings, 
     });
 
     if (selectedHaftarah && haftaraRef) {
-      const parsed = parseHaftarahReference(haftaraRef);
-      if (parsed) {
-        const verses = expandVerseRange(parsed.book, parsed.beginRef, parsed.endRef);
+      const segments = parseHaftarahSegments(haftaraRef);
+      if (segments.length > 0) {
+        const verses = segments.flatMap((seg) =>
+          expandVerseRange(seg.book, seg.beginRef, seg.endRef)
+        );
+        // Use first segment's book/beginRef and last segment's endRef
+        // for the reading-level reference stored in the DB.
+        const first = segments[0];
+        const last = segments[segments.length - 1];
         selections['haftarah'] = {
           type: 'haftarah',
           aliyahNumber: null,
           aliyahName: null,
-          book: parsed.book,
-          beginRef: parsed.beginRef,
-          endRef: parsed.endRef,
+          book: first.book,
+          beginRef: first.beginRef,
+          endRef: last.endRef,
+          // For multi-book Haftarot, store the full raw ref string
+          // so the reading.reference column preserves the original.
+          rawRef: segments.length > 1 || first.book !== last.book ? haftaraRef : null,
           verses: verses.map((v) => ({ ...v, selected: true })),
         };
       }
@@ -976,7 +987,7 @@ function AddReadingModal({ hebcalData, resolvedData, student, existingReadings, 
           portion_name: portionName,
           portion_name_hebrew: portionNameHebrew,
           aliyah: sel.aliyahName || null,
-          reference: buildReferenceString(sel.book, sel.beginRef, sel.endRef),
+          reference: sel.rawRef || buildReferenceString(sel.book, sel.beginRef, sel.endRef),
           sefaria_url: buildSefariaUrl(sel.book, sel.beginRef, sel.endRef),
           sort_order: existingReadings.length + Object.keys(verseSelections).indexOf(key) + 1,
           occasion: occasion || 'shabbat',

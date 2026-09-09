@@ -366,33 +366,121 @@ export function buildReferenceString(book, beginRef, endRef) {
 }
 
 /**
+ * Parse a single "Book chapter:verse-chapter:verse" range token into
+ * { book, beginRef, endRef }. If the token has no book prefix, the
+ * provided fallbackBook is used (for bare continuation ranges like
+ * "9:5-9:6" after a semicolon or comma).
+ *
+ * @param {string} token     - e.g., "Isaiah 6:1-7:6" or "9:5-9:6"
+ * @param {string|null} fallbackBook - book name inherited from prior segment
+ * @returns {{ book, beginRef, endRef } | null}
+ */
+function parseSingleRange(token, fallbackBook = null) {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  // Pattern A: "Book chapter:verse-chapter:verse" (book name present)
+  const withBook = trimmed.match(/^(.+?)\s+(\d+:\d+)-(\d+:?\d*)$/);
+  if (withBook) {
+    const book = withBook[1];
+    const beginRef = withBook[2];
+    let endRef = withBook[3];
+    if (!endRef.includes(':')) {
+      endRef = `${beginRef.split(':')[0]}:${endRef}`;
+    }
+    return { book, beginRef, endRef };
+  }
+
+  // Pattern B: bare range "chapter:verse-chapter:verse" (no book prefix)
+  // Inherits the book from fallbackBook.
+  const bare = trimmed.match(/^(\d+:\d+)-(\d+:?\d*)$/);
+  if (bare && fallbackBook) {
+    const beginRef = bare[1];
+    let endRef = bare[2];
+    if (!endRef.includes(':')) {
+      endRef = `${beginRef.split(':')[0]}:${endRef}`;
+    }
+    return { book: fallbackBook, beginRef, endRef };
+  }
+
+  return null;
+}
+
+/**
+ * Parse a Haftarah reference string into an array of range segments.
+ *
+ * Handles all Hebcal Haftarah formats:
+ *   - Single range:            "Isaiah 54:1-10"
+ *   - Cross-chapter:           "Isaiah 6:1-7:6"
+ *   - Comma-separated (same book, discontinuous chapters):
+ *                              "Isaiah 6:1-7:6, 9:5-9:6"
+ *   - Semicolon-separated (different books):
+ *                              "Jeremiah 7:21-8:3; 9:22-23"
+ *   - Mixed:                   "I Samuel 20:18-42; 20:42"
+ *
+ * Semicolons delimit major segments (may introduce a new book).
+ * Commas delimit sub-ranges within a major segment (same book).
+ * A bare range (no book prefix) inherits the book from the preceding
+ * segment, which covers both comma and semicolon continuation.
+ *
+ * @param {string} refStr - raw Haftarah reference from Hebcal
+ * @returns {Array<{ book: string, beginRef: string, endRef: string }>}
+ */
+export function parseHaftarahSegments(refStr) {
+  if (!refStr) return [];
+
+  const segments = [];
+  let lastBook = null;
+
+  // Split on semicolons first (major segment boundaries)
+  const majorParts = refStr.split(';');
+
+  for (const major of majorParts) {
+    // Within each major segment, split on commas (sub-range boundaries)
+    const subParts = major.split(',');
+
+    for (const sub of subParts) {
+      const parsed = parseSingleRange(sub, lastBook);
+      if (parsed) {
+        segments.push(parsed);
+        lastBook = parsed.book;
+      }
+    }
+  }
+
+  return segments;
+}
+
+/**
+ * Expand a full Haftarah reference string into individual verse objects.
+ *
+ * Convenience wrapper: parses the reference into segments via
+ * parseHaftarahSegments(), then expands each segment with
+ * expandVerseRange() and concatenates the results.
+ *
+ * @param {string} refStr - raw Haftarah reference (e.g., "Isaiah 6:1-7:6, 9:5-9:6")
+ * @returns {Array<{ reference: string, sefariaUrl: string }>}
+ */
+export function expandHaftarahVerses(refStr) {
+  const segments = parseHaftarahSegments(refStr);
+  if (segments.length === 0) return [];
+
+  return segments.flatMap((seg) => expandVerseRange(seg.book, seg.beginRef, seg.endRef));
+}
+
+/**
  * Parse a Haftarah reference string into book, start, end.
- * Handles formats like "Isaiah 27:6-28:13" or "Isaiah 27:6-27:13"
+ *
+ * LEGACY wrapper: returns only the first segment for backward
+ * compatibility. New code should use parseHaftarahSegments() or
+ * expandHaftarahVerses() instead.
  *
  * @param {string} refStr - e.g., "Isaiah 27:6-28:13"
  * @returns {{ book, beginRef, endRef } | null}
  */
 export function parseHaftarahReference(refStr) {
-  if (!refStr) return null;
-
-  // Handle multiple references separated by semicolons (take first)
-  const primary = refStr.split(';')[0].trim();
-
-  // Match patterns like "Isaiah 27:6-28:13" or "I Kings 18:1-39"
-  const match = primary.match(/^(.+?)\s+(\d+:\d+)-(\d+:?\d*)$/);
-  if (!match) return null;
-
-  const book = match[1];
-  const beginRef = match[2];
-  let endRef = match[3];
-
-  // If endRef has no colon, it's a verse in the same chapter
-  if (!endRef.includes(':')) {
-    const startChap = beginRef.split(':')[0];
-    endRef = `${startChap}:${endRef}`;
-  }
-
-  return { book, beginRef, endRef };
+  const segments = parseHaftarahSegments(refStr);
+  return segments.length > 0 ? segments[0] : null;
 }
 
 // ============================================================
