@@ -296,7 +296,30 @@ export default function LogSessionPage() {
 
         setStudentDetail({ readings: sortedReadings, elements: elements || [], tutorId: student.tutor_id });
 
-        // Initialize progress from edit data or fresh
+        // Baseline current status: pre-fills the checklist with each verse's/
+        // element's latest known quality so the tutor only has to touch what
+        // changed today, rather than re-selecting the student's entire history.
+        // `rated` stays false for baseline-only values, so handleSave still only
+        // writes rows for items actually touched in this session.
+        const { data: verseStatusRows, error: vsErr } = await supabase
+          .from('verse_current_status')
+          .select('verse_id, quality, status')
+          .eq('student_id', selectedStudentId);
+        if (vsErr) throw vsErr;
+        const verseBaseline = Object.fromEntries(
+          (verseStatusRows || []).map((v) => [v.verse_id, { quality: v.quality, status: v.status }])
+        );
+
+        const { data: elementStatusRows, error: esErr } = await supabase
+          .from('element_current_status')
+          .select('element_id, quality')
+          .eq('student_id', selectedStudentId);
+        if (esErr) throw esErr;
+        const elementBaseline = Object.fromEntries(
+          (elementStatusRows || []).map((e) => [e.element_id, e.quality])
+        );
+
+        // Initialize progress from edit data, falling back to baseline current status
         const editData = editDataLoaded.current;
 
         const vp = {};
@@ -306,7 +329,13 @@ export default function LogSessionPage() {
             if (existing) {
               vp[v.id] = { rated: true, status: existing.status, quality: existing.quality, readingType: r.reading_type };
             } else {
-              vp[v.id] = { rated: false, status: 'new', quality: null, readingType: r.reading_type };
+              const baseline = verseBaseline[v.id];
+              vp[v.id] = {
+                rated: false,
+                status: baseline?.status || 'new',
+                quality: baseline?.quality || null,
+                readingType: r.reading_type,
+              };
             }
           });
         });
@@ -318,7 +347,7 @@ export default function LogSessionPage() {
           if (existing) {
             ep[el.id] = { rated: true, quality: existing.quality, notes: existing.notes || '' };
           } else {
-            ep[el.id] = { rated: false, quality: null, notes: '' };
+            ep[el.id] = { rated: false, quality: elementBaseline[el.id] || null, notes: '' };
           }
         });
         setElementProgress(ep);
@@ -860,7 +889,7 @@ export default function LogSessionPage() {
 
   /** Returns the pill background color for a verse or element. */
   function getPillColor(progress) {
-    if (!progress.rated || !progress.quality) return COLOR_GRAY;
+    if (!progress.quality) return COLOR_GRAY;
     if (progress.quality === QUALITY.PERFECT && progress.status === 'torah_side') return COLOR_GOLD;
     return QUALITY_COLORS[progress.quality] || COLOR_GRAY;
   }
@@ -1264,24 +1293,27 @@ export default function LogSessionPage() {
                               if (!ep) return null;
                               const color = getPillColor(ep);
                               const isOpen = openRaterId === el.id;
-                              const isRated = ep.rated && ep.quality;
+                              // hasQuality reflects current status (baseline or touched this
+                              // session) and drives the pill's color/checkmark. ep.rated is
+                              // reserved for "touched in this session" (save logic, counts).
+                              const hasQuality = Boolean(ep.quality);
 
                               return (
                                 <button
                                   key={el.id}
                                   className={[
                                     'rating-pill',
-                                    isRated ? 'rating-pill-rated' : 'rating-pill-unrated',
+                                    hasQuality ? 'rating-pill-rated' : 'rating-pill-unrated',
                                     isOpen ? 'rating-pill-open' : '',
                                   ].filter(Boolean).join(' ')}
-                                  style={isRated ? { backgroundColor: color, borderColor: color } : {}}
+                                  style={hasQuality ? { backgroundColor: color, borderColor: color } : {}}
                                   onClick={() => toggleRater(el.id)}
                                   type="button"
-                                  aria-label={`${el.label}${isRated ? ', rated ' + QUALITY_LABELS_ELEMENT_PRECISION[ep.quality] : ', not rated'}`}
+                                  aria-label={`${el.label}${hasQuality ? ', rated ' + QUALITY_LABELS_ELEMENT_PRECISION[ep.quality] : ', not rated'}`}
                                   aria-pressed={isOpen}
                                 >
                                   <span className="rating-pill-text">{el.label}</span>
-                                  {isRated && (
+                                  {hasQuality && (
                                     <svg className="rating-pill-check" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                       <polyline points="2 6 5 9 10 3" />
                                     </svg>
