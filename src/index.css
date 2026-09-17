@@ -6371,6 +6371,17 @@ select.input {
   color: #fff !important;
 }
 
+/* Clear button: resets an element to unrated, notes are left untouched */
+.rater-quality-btn-clear {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.rater-quality-btn-clear:hover {
+  background-color: var(--color-error-bg);
+  opacity: 1;
+}
+
 .rater-quality-check {
   flex-shrink: 0;
 }
@@ -8004,6 +8015,15 @@ select.input {
 
 .verse-rate-btn-active .verse-rate-mini {
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Clear button: resets a verse to unrated */
+.verse-rate-btn-clear {
+  color: var(--color-error);
+}
+
+.verse-rate-btn-clear:hover {
+  background: var(--color-error-bg);
 }
 
 /* Active Torah-side button: gold bg */

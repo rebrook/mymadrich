@@ -181,6 +181,12 @@ export function VerseProgress({
   function handleRaterPick(verse, raterLevel) {
     if (!onRate) return;
 
+    // Clear: fully unrate the verse, resetting status back to not-started
+    if (raterLevel.level === 0) {
+      onRate(verse.id, { quality: null, status: 'new' });
+      return;
+    }
+
     const update = { quality: raterLevel.quality };
 
     // Torah-side levels: set the appropriate status
@@ -354,6 +360,16 @@ function VerseRater({ verse, verseIndex, onPick }) {
           </button>
         );
       })}
+      {verse.quality && (
+        <button
+          type="button"
+          className="verse-rate-btn verse-rate-btn-clear"
+          onClick={() => onPick({ level: 0, quality: null })}
+          aria-label={`Clear rating for ${verse.ref || `verse ${verseIndex + 1}`}`}
+        >
+          Clear
+        </button>
+      )}
     </div>
   );
 }

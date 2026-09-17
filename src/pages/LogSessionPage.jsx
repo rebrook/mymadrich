@@ -105,6 +105,10 @@ export default function LogSessionPage() {
   // "Fill from last session" button loading state, keyed by 'reading-<id>' or 'category-<name>'
   const [fillingFromLastSession, setFillingFromLastSession] = useState(null);
 
+  // What each active "Fill from last session" click changed, so a second click
+  // can undo precisely that (and only that) — keyed by 'reading-<id>' or 'category-<name>'
+  const [filledSections, setFilledSections] = useState({});
+
   // Unsaved-changes tracking
   const [isDirty, setIsDirty] = useState(false);
 
@@ -370,11 +374,11 @@ export default function LogSessionPage() {
   function handleVerseQualityChange(verseId, quality) {
     setVerseProgress((prev) => ({
       ...prev,
-      [verseId]: { ...prev[verseId], rated: true, quality },
+      [verseId]: { ...prev[verseId], rated: Boolean(quality), quality },
     }));
 
-    // L-4: Auto-add reading to homework
-    if (studentDetail) {
+    // L-4: Auto-add reading to homework (not when clearing a rating)
+    if (quality && studentDetail) {
       const reading = studentDetail.readings.find((r) =>
         r.verses.some((v) => v.id === verseId)
       );
@@ -434,14 +438,16 @@ export default function LogSessionPage() {
   function handleElementQualityChange(elementId, quality) {
     setElementProgress((prev) => ({
       ...prev,
-      [elementId]: { ...prev[elementId], rated: true, quality },
+      [elementId]: { ...prev[elementId], rated: Boolean(quality), quality },
     }));
 
-    // L-4: Auto-add element to homework
-    setHomeworkSelections((prev) => ({
-      ...prev,
-      [`element-${elementId}`]: true,
-    }));
+    // L-4: Auto-add element to homework (not when clearing a rating)
+    if (quality) {
+      setHomeworkSelections((prev) => ({
+        ...prev,
+        [`element-${elementId}`]: true,
+      }));
+    }
 
     setIsDirty(true);
   }
@@ -538,15 +544,44 @@ export default function LogSessionPage() {
 
   // ---- Fill from last session ----
   // Explicit, per-reading / per-category action: the tutor confirms they
-  // actually reviewed this section today, and it's marked rated (so it saves
-  // to session_verse_progress / session_element_progress like any other
-  // rating) at each verse's/element's most recent known quality. Unlike the
-  // old always-on baseline, nothing is implied automatically.
+  // actually reviewed this section today. Filled items are marked rated
+  // (so they save to session_verse_progress / session_element_progress
+  // like any other rating) at each verse's/element's most recent known
+  // quality. Never overwrites a verse/element already rated this session.
+  // A second click undoes exactly what that click filled — but only for
+  // items still untouched since (a manual edit made in between is left
+  // alone rather than silently discarded).
   async function handleFillReadingFromLastSession(readingId) {
+    const panelId = `reading-${readingId}`;
+
+    // Toggle off: undo this section's fill
+    const active = filledSections[panelId];
+    if (active) {
+      setVerseProgress((prev) => {
+        const next = { ...prev };
+        Object.entries(active.snapshot).forEach(([id, { before, after }]) => {
+          if (JSON.stringify(next[id]) === JSON.stringify(after)) {
+            next[id] = before;
+          }
+        });
+        return next;
+      });
+      setHomeworkSelections((prev) => {
+        if (prev[active.homeworkKey] !== true) return prev; // manually changed since, leave it
+        return { ...prev, [active.homeworkKey]: active.homeworkPrev };
+      });
+      setFilledSections((prev) => {
+        const next = { ...prev };
+        delete next[panelId];
+        return next;
+      });
+      setIsDirty(true);
+      return;
+    }
+
     const reading = studentDetail?.readings.find((r) => r.id === readingId);
     if (!reading || reading.verses.length === 0) return;
 
-    const panelId = `reading-${readingId}`;
     setFillingFromLastSession(panelId);
     try {
       const verseIds = reading.verses.map((v) => v.id);
@@ -558,23 +593,38 @@ export default function LogSessionPage() {
 
       const statusMap = Object.fromEntries((data || []).map((v) => [v.verse_id, v]));
 
+      // Never overwrite a verse already rated this session
+      const snapshot = {};
+      reading.verses.forEach((v) => {
+        const before = verseProgress[v.id];
+        if (before?.rated) return;
+        const baseline = statusMap[v.id];
+        if (baseline?.quality) {
+          snapshot[v.id] = {
+            before,
+            after: { ...before, rated: true, quality: baseline.quality, status: baseline.status || before?.status || 'new' },
+          };
+        }
+      });
+
+      if (Object.keys(snapshot).length === 0) return;
+
       setVerseProgress((prev) => {
         const next = { ...prev };
-        reading.verses.forEach((v) => {
-          const baseline = statusMap[v.id];
-          if (baseline?.quality) {
-            next[v.id] = {
-              ...next[v.id],
-              rated: true,
-              quality: baseline.quality,
-              status: baseline.status || next[v.id]?.status || 'new',
-            };
-          }
+        Object.entries(snapshot).forEach(([id, { after }]) => {
+          next[id] = after;
         });
         return next;
       });
 
-      setHomeworkSelections((prev) => ({ ...prev, [`reading-${readingId}`]: true }));
+      const homeworkKey = `reading-${readingId}`;
+      const homeworkPrev = homeworkSelections[homeworkKey] || false;
+      setHomeworkSelections((prev) => ({ ...prev, [homeworkKey]: true }));
+
+      setFilledSections((prev) => ({
+        ...prev,
+        [panelId]: { snapshot, homeworkKey, homeworkPrev },
+      }));
       setIsDirty(true);
     } catch (err) {
       console.error('Failed to fill reading from last session:', err.message);
@@ -584,10 +634,40 @@ export default function LogSessionPage() {
   }
 
   async function handleFillCategoryFromLastSession(category) {
+    const panelId = `category-${category}`;
+
+    // Toggle off: undo this section's fill
+    const active = filledSections[panelId];
+    if (active) {
+      setElementProgress((prev) => {
+        const next = { ...prev };
+        Object.entries(active.snapshot).forEach(([id, { before, after }]) => {
+          if (JSON.stringify(next[id]) === JSON.stringify(after)) {
+            next[id] = before;
+          }
+        });
+        return next;
+      });
+      setHomeworkSelections((prev) => {
+        const next = { ...prev };
+        active.homeworkKeys.forEach((key) => {
+          if (next[key] === true) next[key] = active.homeworkPrev[key];
+          // else: manually changed since, leave it
+        });
+        return next;
+      });
+      setFilledSections((prev) => {
+        const next = { ...prev };
+        delete next[panelId];
+        return next;
+      });
+      setIsDirty(true);
+      return;
+    }
+
     const catElements = studentDetail?.elements.filter((el) => el.category === category) || [];
     if (catElements.length === 0) return;
 
-    const panelId = `category-${category}`;
     setFillingFromLastSession(panelId);
     try {
       const elementIds = catElements.map((el) => el.id);
@@ -599,24 +679,40 @@ export default function LogSessionPage() {
 
       const statusMap = Object.fromEntries((data || []).map((e) => [e.element_id, e.quality]));
 
+      // Never overwrite an element already rated this session
+      const snapshot = {};
+      catElements.forEach((el) => {
+        const before = elementProgress[el.id];
+        if (before?.rated) return;
+        const quality = statusMap[el.id];
+        if (quality) {
+          snapshot[el.id] = { before, after: { ...before, rated: true, quality } };
+        }
+      });
+
+      if (Object.keys(snapshot).length === 0) return;
+
       setElementProgress((prev) => {
         const next = { ...prev };
-        catElements.forEach((el) => {
-          const quality = statusMap[el.id];
-          if (quality) {
-            next[el.id] = { ...next[el.id], rated: true, quality };
-          }
+        Object.entries(snapshot).forEach(([id, { after }]) => {
+          next[id] = after;
         });
         return next;
       });
 
+      const homeworkKeys = Object.keys(snapshot).map((id) => `element-${id}`);
+      const homeworkPrev = {};
+      homeworkKeys.forEach((key) => { homeworkPrev[key] = homeworkSelections[key] || false; });
       setHomeworkSelections((prev) => {
         const next = { ...prev };
-        catElements.forEach((el) => {
-          next[`element-${el.id}`] = true;
-        });
+        homeworkKeys.forEach((key) => { next[key] = true; });
         return next;
       });
+
+      setFilledSections((prev) => ({
+        ...prev,
+        [panelId]: { snapshot, homeworkKeys, homeworkPrev },
+      }));
       setIsDirty(true);
     } catch (err) {
       console.error('Failed to fill category from last session:', err.message);
@@ -1257,7 +1353,11 @@ export default function LogSessionPage() {
                               type="button"
                               disabled={fillingFromLastSession === panelId}
                             >
-                              {fillingFromLastSession === panelId ? 'Filling...' : 'Fill from last session'}
+                              {fillingFromLastSession === panelId
+                                ? 'Filling...'
+                                : filledSections[panelId]
+                                ? 'Undo fill'
+                                : 'Fill from last session'}
                             </button>
                           )}
                           {unratedCount > 0 && (
@@ -1350,7 +1450,11 @@ export default function LogSessionPage() {
                               type="button"
                               disabled={fillingFromLastSession === panelId}
                             >
-                              {fillingFromLastSession === panelId ? 'Filling...' : 'Fill from last session'}
+                              {fillingFromLastSession === panelId
+                                ? 'Filling...'
+                                : filledSections[panelId]
+                                ? 'Undo fill'
+                                : 'Fill from last session'}
                             </button>
                             {unratedCount > 0 && (
                               <button

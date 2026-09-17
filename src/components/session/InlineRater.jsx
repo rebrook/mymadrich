@@ -142,6 +142,16 @@ export default function InlineRater({
             </button>
           );
         })}
+        {quality && (
+          <button
+            className="rater-quality-btn rater-quality-btn-clear"
+            onClick={() => onQualityChange(null)}
+            type="button"
+            aria-label={`Clear rating for ${itemRef}`}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Notes (element mode only) */}
