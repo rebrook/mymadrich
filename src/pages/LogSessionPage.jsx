@@ -102,6 +102,9 @@ export default function LogSessionPage() {
   const [markRemainingOpen, setMarkRemainingOpen] = useState(null); // 'reading-<id>' or 'category-<name>'
   const [markRemainingStatus, setMarkRemainingStatus] = useState('review');
 
+  // "Fill from last session" button loading state, keyed by 'reading-<id>' or 'category-<name>'
+  const [fillingFromLastSession, setFillingFromLastSession] = useState(null);
+
   // Unsaved-changes tracking
   const [isDirty, setIsDirty] = useState(false);
 
@@ -296,30 +299,7 @@ export default function LogSessionPage() {
 
         setStudentDetail({ readings: sortedReadings, elements: elements || [], tutorId: student.tutor_id });
 
-        // Baseline current status: pre-fills the checklist with each verse's/
-        // element's latest known quality so the tutor only has to touch what
-        // changed today, rather than re-selecting the student's entire history.
-        // `rated` stays false for baseline-only values, so handleSave still only
-        // writes rows for items actually touched in this session.
-        const { data: verseStatusRows, error: vsErr } = await supabase
-          .from('verse_current_status')
-          .select('verse_id, quality, status')
-          .eq('student_id', selectedStudentId);
-        if (vsErr) throw vsErr;
-        const verseBaseline = Object.fromEntries(
-          (verseStatusRows || []).map((v) => [v.verse_id, { quality: v.quality, status: v.status }])
-        );
-
-        const { data: elementStatusRows, error: esErr } = await supabase
-          .from('element_current_status')
-          .select('element_id, quality')
-          .eq('student_id', selectedStudentId);
-        if (esErr) throw esErr;
-        const elementBaseline = Object.fromEntries(
-          (elementStatusRows || []).map((e) => [e.element_id, e.quality])
-        );
-
-        // Initialize progress from edit data, falling back to baseline current status
+        // Initialize progress from edit data or fresh
         const editData = editDataLoaded.current;
 
         const vp = {};
@@ -329,13 +309,7 @@ export default function LogSessionPage() {
             if (existing) {
               vp[v.id] = { rated: true, status: existing.status, quality: existing.quality, readingType: r.reading_type };
             } else {
-              const baseline = verseBaseline[v.id];
-              vp[v.id] = {
-                rated: false,
-                status: baseline?.status || 'new',
-                quality: baseline?.quality || null,
-                readingType: r.reading_type,
-              };
+              vp[v.id] = { rated: false, status: 'new', quality: null, readingType: r.reading_type };
             }
           });
         });
@@ -347,7 +321,7 @@ export default function LogSessionPage() {
           if (existing) {
             ep[el.id] = { rated: true, quality: existing.quality, notes: existing.notes || '' };
           } else {
-            ep[el.id] = { rated: false, quality: elementBaseline[el.id] || null, notes: '' };
+            ep[el.id] = { rated: false, quality: null, notes: '' };
           }
         });
         setElementProgress(ep);
@@ -560,6 +534,95 @@ export default function LogSessionPage() {
 
     setMarkRemainingOpen(null);
     setIsDirty(true);
+  }
+
+  // ---- Fill from last session ----
+  // Explicit, per-reading / per-category action: the tutor confirms they
+  // actually reviewed this section today, and it's marked rated (so it saves
+  // to session_verse_progress / session_element_progress like any other
+  // rating) at each verse's/element's most recent known quality. Unlike the
+  // old always-on baseline, nothing is implied automatically.
+  async function handleFillReadingFromLastSession(readingId) {
+    const reading = studentDetail?.readings.find((r) => r.id === readingId);
+    if (!reading || reading.verses.length === 0) return;
+
+    const panelId = `reading-${readingId}`;
+    setFillingFromLastSession(panelId);
+    try {
+      const verseIds = reading.verses.map((v) => v.id);
+      const { data, error } = await supabase
+        .from('verse_current_status')
+        .select('verse_id, quality, status')
+        .in('verse_id', verseIds);
+      if (error) throw error;
+
+      const statusMap = Object.fromEntries((data || []).map((v) => [v.verse_id, v]));
+
+      setVerseProgress((prev) => {
+        const next = { ...prev };
+        reading.verses.forEach((v) => {
+          const baseline = statusMap[v.id];
+          if (baseline?.quality) {
+            next[v.id] = {
+              ...next[v.id],
+              rated: true,
+              quality: baseline.quality,
+              status: baseline.status || next[v.id]?.status || 'new',
+            };
+          }
+        });
+        return next;
+      });
+
+      setHomeworkSelections((prev) => ({ ...prev, [`reading-${readingId}`]: true }));
+      setIsDirty(true);
+    } catch (err) {
+      console.error('Failed to fill reading from last session:', err.message);
+    } finally {
+      setFillingFromLastSession(null);
+    }
+  }
+
+  async function handleFillCategoryFromLastSession(category) {
+    const catElements = studentDetail?.elements.filter((el) => el.category === category) || [];
+    if (catElements.length === 0) return;
+
+    const panelId = `category-${category}`;
+    setFillingFromLastSession(panelId);
+    try {
+      const elementIds = catElements.map((el) => el.id);
+      const { data, error } = await supabase
+        .from('element_current_status')
+        .select('element_id, quality')
+        .in('element_id', elementIds);
+      if (error) throw error;
+
+      const statusMap = Object.fromEntries((data || []).map((e) => [e.element_id, e.quality]));
+
+      setElementProgress((prev) => {
+        const next = { ...prev };
+        catElements.forEach((el) => {
+          const quality = statusMap[el.id];
+          if (quality) {
+            next[el.id] = { ...next[el.id], rated: true, quality };
+          }
+        });
+        return next;
+      });
+
+      setHomeworkSelections((prev) => {
+        const next = { ...prev };
+        catElements.forEach((el) => {
+          next[`element-${el.id}`] = true;
+        });
+        return next;
+      });
+      setIsDirty(true);
+    } catch (err) {
+      console.error('Failed to fill category from last session:', err.message);
+    } finally {
+      setFillingFromLastSession(null);
+    }
   }
 
   // ---- Homework ----
@@ -889,7 +952,7 @@ export default function LogSessionPage() {
 
   /** Returns the pill background color for a verse or element. */
   function getPillColor(progress) {
-    if (!progress.quality) return COLOR_GRAY;
+    if (!progress.rated || !progress.quality) return COLOR_GRAY;
     if (progress.quality === QUALITY.PERFECT && progress.status === 'torah_side') return COLOR_GOLD;
     return QUALITY_COLORS[progress.quality] || COLOR_GRAY;
   }
@@ -1187,6 +1250,16 @@ export default function LogSessionPage() {
                           <span className="rating-pills-meta">
                             {ratedInReading} of {readingVerses.length} rated
                           </span>
+                          {readingVerses.length > 0 && (
+                            <button
+                              className="mark-remaining-trigger"
+                              onClick={() => handleFillReadingFromLastSession(reading.id)}
+                              type="button"
+                              disabled={fillingFromLastSession === panelId}
+                            >
+                              {fillingFromLastSession === panelId ? 'Filling...' : 'Fill from last session'}
+                            </button>
+                          )}
                           {unratedCount > 0 && (
                             <button
                               className="mark-remaining-trigger"
@@ -1271,6 +1344,14 @@ export default function LogSessionPage() {
                             <span className="rating-pills-meta">
                               {ratedInCat} of {items.length} rated
                             </span>
+                            <button
+                              className="mark-remaining-trigger"
+                              onClick={() => handleFillCategoryFromLastSession(cat)}
+                              type="button"
+                              disabled={fillingFromLastSession === panelId}
+                            >
+                              {fillingFromLastSession === panelId ? 'Filling...' : 'Fill from last session'}
+                            </button>
                             {unratedCount > 0 && (
                               <button
                                 className="mark-remaining-trigger"
@@ -1293,27 +1374,24 @@ export default function LogSessionPage() {
                               if (!ep) return null;
                               const color = getPillColor(ep);
                               const isOpen = openRaterId === el.id;
-                              // hasQuality reflects current status (baseline or touched this
-                              // session) and drives the pill's color/checkmark. ep.rated is
-                              // reserved for "touched in this session" (save logic, counts).
-                              const hasQuality = Boolean(ep.quality);
+                              const isRated = ep.rated && ep.quality;
 
                               return (
                                 <button
                                   key={el.id}
                                   className={[
                                     'rating-pill',
-                                    hasQuality ? 'rating-pill-rated' : 'rating-pill-unrated',
+                                    isRated ? 'rating-pill-rated' : 'rating-pill-unrated',
                                     isOpen ? 'rating-pill-open' : '',
                                   ].filter(Boolean).join(' ')}
-                                  style={hasQuality ? { backgroundColor: color, borderColor: color } : {}}
+                                  style={isRated ? { backgroundColor: color, borderColor: color } : {}}
                                   onClick={() => toggleRater(el.id)}
                                   type="button"
-                                  aria-label={`${el.label}${hasQuality ? ', rated ' + QUALITY_LABELS_ELEMENT_PRECISION[ep.quality] : ', not rated'}`}
+                                  aria-label={`${el.label}${isRated ? ', rated ' + QUALITY_LABELS_ELEMENT_PRECISION[ep.quality] : ', not rated'}`}
                                   aria-pressed={isOpen}
                                 >
                                   <span className="rating-pill-text">{el.label}</span>
-                                  {hasQuality && (
+                                  {isRated && (
                                     <svg className="rating-pill-check" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                       <polyline points="2 6 5 9 10 3" />
                                     </svg>
