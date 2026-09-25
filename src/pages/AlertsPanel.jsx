@@ -10,14 +10,12 @@ import {
 } from '../../utils/mailto';
 
 const ALERT_TYPES = {
-  unassigned: { label: 'No Tutor Assigned', color: '#d97706', priority: 0, severity: true },
   critical: { label: 'Critical Pace', color: '#c53030', priority: 1, severity: true },
   behind: { label: 'Behind Pace', color: '#d96c2e', priority: 2, severity: true },
   stale: { label: 'No Session in 14+ Days', color: '#d96c2e', priority: 3, severity: false },
   no_sessions: { label: 'No Sessions Logged', color: '#d97706', priority: 4, severity: false },
   upcoming: { label: 'Mitzvah Within 4 Weeks', color: '#2563eb', priority: 5, severity: false },
-  tutor_invited: { label: 'Tutor Invited, Not Yet Signed In', color: '#6b6962', priority: 6, severity: false },
-  no_readings: { label: 'No Readings Assigned', color: '#d97706', priority: 7, severity: false },
+  no_readings: { label: 'No Readings Assigned', color: '#d97706', priority: 6, severity: false },
 };
 
 const CHIP_CAP = 6;
@@ -213,12 +211,9 @@ function AlertChipMenu({ alert, alertType, lastSessionMap, onSelectStudent, onCl
  *   tutor:profiles!tutor_id(display_name, email)
  *   student_guardians(name, email, is_primary)
  * for the email actions to work. If missing, email actions are disabled.
- *
- * M:N migration (S32): unassigned detection now uses student_tutors array
- * (zero rows = unassigned) instead of !s.tutor_id.
  */
 export default function AlertsPanel({ students, paceMap, lastSessionMap, progressMap, onSelectStudent }) {
-  // Compute alert groups (updated for M:N unassigned detection)
+  // Compute alert groups (UNCHANGED from v2)
   const { alertGroups, groupKeys, totalAlerts, hasSeverity } = useMemo(() => {
     if (!students?.length) return { alertGroups: {}, groupKeys: [], totalAlerts: 0, hasSeverity: false };
 
@@ -228,17 +223,17 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
     students.forEach((s) => {
       if (s.status !== 'active' && s.status !== 'deferred') return;
 
-      // Unassigned tutor: M:N check — zero student_tutors rows
-      // If a pending tutor assignment exists, use the softer 'tutor_invited' variant
-      if (!s.student_tutors || s.student_tutors.length === 0) {
-        const hasPending = (s.pending_tutor_assignments?.length || 0) > 0;
-        alerts.push({ type: hasPending ? 'tutor_invited' : 'unassigned', student: s });
-      }
-
       const paceData = paceMap[s.id];
       const paceStatus = paceData?.pace?.status;
       const lastSession = lastSessionMap[s.id];
       const progress = progressMap[s.id];
+
+      // Once the mitzvah date has passed, the event happened — treat it
+      // as a celebration, not something to audit. Pace, staleness, and
+      // missing-work alerts no longer apply. ("upcoming" already can't
+      // fire here since it requires daysUntil > 0.)
+      const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < today;
+      if (mitzvahHasPassed) return;
 
       if (paceStatus === 'critical') {
         alerts.push({ type: 'critical', student: s, detail: paceData.pace, progress });

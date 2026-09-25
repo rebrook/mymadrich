@@ -253,7 +253,7 @@ export default function SessionHistoryPage() {
       try {
         const { data, error: err } = await supabase
           .from('students')
-          .select('id, first_name, last_name, tutor_id, tutor:profiles!tutor_id(display_name), cohort:cohorts!cohort_id(id, start_date), student_guardians(name, is_primary)')
+          .select('id, first_name, last_name, tutor_id, mitzvah_date, tutor:profiles!tutor_id(display_name), cohort:cohorts!cohort_id(id, start_date), student_guardians(name, is_primary)')
           .in('status', ['active', 'deferred', 'completed'])
           .order('last_name');
         if (err) throw err;
@@ -309,6 +309,12 @@ export default function SessionHistoryPage() {
     const start = student?.cohort?.start_date || null;
     setCohortStartDate(start);
   }, [selectedStudentId, students, allStudents]);
+
+  // ---- Selected student object (single-student mode; used for Bimah date display) ----
+  const selectedStudent = useMemo(
+    () => students.find((s) => s.id === selectedStudentId) || null,
+    [students, selectedStudentId]
+  );
 
   // ---- Determine UI visibility ----
   const isStaff = role === ROLES.ADMIN || role === ROLES.TUTOR;
@@ -642,6 +648,7 @@ export default function SessionHistoryPage() {
               <div className="session-history-list">
                 {sessions.map((session) => {
                   const isExpanded = expandedId === session.id;
+                  const bimahDate = allStudents ? session.mitzvahDate : selectedStudent?.mitzvah_date;
 
                   return (
                     <div
@@ -667,6 +674,9 @@ export default function SessionHistoryPage() {
                               <span className="session-history-student-name">{session.studentName}</span>
                             )}
                             {tutorName(session.tutor)}
+                            {bimahDate && (
+                              <span className="session-history-bimah"> · Bimah: {formatDate(bimahDate)}</span>
+                            )}
                             {session.updated_at && session.created_at &&
                               session.updated_at.slice(0, 16) !== session.created_at.slice(0, 16) && (
                               <span className="session-history-edited"> · Edited {formatDate(session.updated_at?.split('T')[0])}</span>
@@ -712,6 +722,9 @@ export default function SessionHistoryPage() {
                                   <span className="session-detail-header-student">{session.studentName}</span>
                                 )}
                                 <span className="session-detail-header-tutor">{tutorName(session.tutor)}</span>
+                                {bimahDate && (
+                                  <span className="session-detail-header-bimah">Bimah: {formatDate(bimahDate)}</span>
+                                )}
                                 {session.updated_at && session.created_at &&
                                   session.updated_at.slice(0, 16) !== session.created_at.slice(0, 16) && (
                                   <span className="session-history-edited">Edited</span>

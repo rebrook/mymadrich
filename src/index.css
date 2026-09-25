@@ -7091,6 +7091,15 @@ select.input {
   color: var(--color-text-secondary);
 }
 
+.session-detail-header-bimah {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.session-history-bimah {
+  color: var(--color-text-secondary);
+}
+
 .session-detail-header-actions {
   display: flex;
   align-items: center;

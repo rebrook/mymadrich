@@ -105,7 +105,7 @@ export function useSessions({
           created_at,
           updated_at,
           tutor:profiles!tutor_id(id, display_name),
-          student:students!student_id(id, first_name, last_name),
+          student:students!student_id(id, first_name, last_name, mitzvah_date),
           session_verse_progress(count),
           session_element_progress(count)
         `
@@ -146,6 +146,7 @@ export function useSessions({
         studentName: s.student
           ? `${s.student.first_name} ${s.student.last_name}`
           : null,
+        mitzvahDate: s.student?.mitzvah_date || null,
       }));
 
       setSessions(normalized);
