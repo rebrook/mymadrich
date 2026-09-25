@@ -312,14 +312,6 @@ a:hover {
   color: var(--color-primary);
 }
 
-/* Persistent underline for the two pre-existing genuine <Link> student
-   names (StudentTab roster, Dashboard admin table row) which otherwise
-   only underline on :hover via the global `a` rule — no hover state
-   exists on touch devices, so this was invisible on mobile. */
-.student-name-underline {
-  text-decoration: underline;
-}
-
 /* Screen reader only */
 .sr-only {
   position: absolute;
@@ -6851,12 +6843,8 @@ select.input {
 
 .student-name-cell a {
   color: var(--color-primary);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.student-name-cell a:hover {
   text-decoration: underline;
+  font-weight: 500;
 }
 
 .student-name-cell a:focus-visible {
@@ -9286,10 +9274,6 @@ select.input {
 .readiness-name-cell a {
   font-weight: 600;
   color: var(--color-text);
-  text-decoration: none;
-}
-
-.readiness-name-cell a:hover {
   text-decoration: underline;
 }
 
