@@ -187,7 +187,13 @@ export default function SessionHistoryPage() {
   const persisted = useMemo(() => loadPersistedFilters(), []);
   const [dateFrom, setDateFrom] = useState(persisted?.dateFrom || '');
   const [dateTo, setDateTo] = useState(persisted?.dateTo || '');
-  const [allStudents, setAllStudents] = useState(persisted?.allStudents || false);
+  const [allStudents, setAllStudents] = useState(() => {
+    // An explicit ?student= deep link should always win over a remembered
+    // "All Students" preference — otherwise a link meant to show one
+    // student's history silently shows everyone's instead.
+    if (searchParams.get('student')) return false;
+    return persisted?.allStudents || false;
+  });
   const [activePreset, setActivePreset] = useState(persisted?.activePreset || null);
   const [rangeError, setRangeError] = useState(null);
 
@@ -238,6 +244,26 @@ export default function SessionHistoryPage() {
     dateTo: dateTo || null,
     allStudents,
   });
+
+  // ---- Deep-link: auto-expand + scroll to a specific session (?session=) ----
+  const sessionParam = searchParams.get('session');
+  const sessionScrollHandled = useRef(false);
+
+  useEffect(() => {
+    if (!sessionParam || sessionScrollHandled.current || loading) return;
+    const target = sessions.find((s) => s.id === sessionParam);
+    if (!target) return;
+
+    sessionScrollHandled.current = true;
+    fetchDetail(sessionParam);
+
+    // Wait a tick for the expanded detail to render before scrolling to it
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`session-card-${sessionParam}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [sessionParam, sessions, loading, fetchDetail]);
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -695,6 +721,7 @@ export default function SessionHistoryPage() {
                   return (
                     <div
                       key={session.id}
+                      id={`session-card-${session.id}`}
                       className={`session-history-card ${isExpanded ? 'session-history-card-expanded' : ''}`}
                     >
                       {/* Summary row (always visible, clickable) */}
