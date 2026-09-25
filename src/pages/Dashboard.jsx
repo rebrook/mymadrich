@@ -2234,7 +2234,7 @@ export default function Dashboard() {
                                 <span className="student-avatar" aria-hidden="true">
                                   {getInitials(s.first_name, s.last_name)}
                                 </span>
-                                <Link to={`/admin/students/${s.id}`}>
+                                <Link to={`/admin/students/${s.id}`} className="student-name-underline">
                                   {s.last_name}, {s.first_name}
                                 </Link>
                               </div>
