@@ -239,6 +239,7 @@ export default function SessionHistoryPage() {
   // Overflow menu (three-dot) for session actions
   const [overflowMenuId, setOverflowMenuId] = useState(null);
   const overflowTriggerRef = useRef(null);
+  const overflowWrapperRef = useRef(null);
 
   // Role-aware quality labels (Decision 3)
   // Verse labels use "Learned with Trope"; element labels use "Learned"
@@ -408,9 +409,12 @@ export default function SessionHistoryPage() {
     }
   }
 
-  // Close overflow menu on outside click
+  // Close overflow menu on outside click (checks the whole trigger+menu
+  // wrapper, not just the trigger button — otherwise a mousedown on a
+  // menu item like "Delete session" gets treated as an outside click,
+  // closing the menu before the click can register on that item)
   const handleOverflowOutsideClick = useCallback((e) => {
-    if (overflowTriggerRef.current && overflowTriggerRef.current.contains(e.target)) return;
+    if (overflowWrapperRef.current && overflowWrapperRef.current.contains(e.target)) return;
     setOverflowMenuId(null);
   }, []);
 
@@ -769,7 +773,10 @@ export default function SessionHistoryPage() {
                                   </button>
                                 )}
                                 {canDelete && (
-                                  <div className="session-overflow-wrapper">
+                                  <div
+                                    className="session-overflow-wrapper"
+                                    ref={overflowMenuId === session.id ? overflowWrapperRef : undefined}
+                                  >
                                     <button
                                       className="session-detail-icon-btn"
                                       onClick={(e) => toggleOverflowMenu(session.id, e)}
