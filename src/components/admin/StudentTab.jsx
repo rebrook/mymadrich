@@ -695,6 +695,7 @@ export default function StudentTab() {
         const sorted = sortStudents(filtered);
 
         return (
+          <div className="data-table-wrap">
           <table className="data-table table-interactive">
             <thead>
               <tr>
@@ -889,6 +890,7 @@ export default function StudentTab() {
               ))}
             </tbody>
           </table>
+          </div>
         );
       })()}
 
