@@ -31,7 +31,7 @@ function formatDate(dateStr) {
  * Action menu for an alert chip. Desktop: dropdown below the chip.
  * Mobile: bottom sheet overlay with 44px touch targets.
  */
-function AlertChipMenu({ alert, alertType, lastSessionMap, onSelectStudent, onClose }) {
+function AlertChipMenu({ alert, alertType, lastSessionMap, onClose }) {
   const menuRef = useRef(null);
   const student = alert.student;
   const studentFullName = `${student.first_name} ${student.last_name}`;
@@ -108,11 +108,6 @@ function AlertChipMenu({ alert, alertType, lastSessionMap, onSelectStudent, onCl
     }
   }
 
-  function handleJump() {
-    onSelectStudent(student.id);
-    onClose();
-  }
-
   function handleEmailTutor() {
     if (nudgeMailto) window.open(nudgeMailto, '_self');
     onClose();
@@ -137,12 +132,6 @@ function AlertChipMenu({ alert, alertType, lastSessionMap, onSelectStudent, onCl
   }
 
   const actions = [
-    {
-      label: 'Jump to student',
-      icon: '\u2192',
-      onClick: handleJump,
-      disabled: false,
-    },
     {
       label: nudgeMailto ? 'Email tutor' : 'Email tutor (no email)',
       icon: '\u2709',
@@ -377,39 +366,50 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
 
                     return (
                       <div key={chipKey} className="alerts-chip-wrapper">
-                        <button
-                          className={`alerts-item ${isOpen ? 'alerts-item-active' : ''}`}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleChipClick(type, alert.student.id);
-                          }}
-                          aria-haspopup="menu"
-                          aria-expanded={isOpen}
-                        >
-                          <span className="alerts-item-name">
-                            {alert.student.first_name} {alert.student.last_name}
-                          </span>
-                          {type === 'stale' && (
-                            <span className="alerts-item-detail">{alert.daysSince} days ago</span>
-                          )}
-                          {type === 'upcoming' && (
-                            <span className="alerts-item-detail">{formatDate(alert.mitzvahDate)} ({alert.daysUntil}d)</span>
-                          )}
-                          {(type === 'critical' || type === 'behind') && alert.progress && alert.progress.total > 0 && (
-                            <span className="alerts-item-detail">
-                              {formatMasterySummary(alert.progress)}
+                        <div className={`alerts-item ${isOpen ? 'alerts-item-active' : ''}`}>
+                          <button
+                            className="alerts-item-name-btn"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectStudent(alert.student.id);
+                            }}
+                          >
+                            <span className="alerts-item-name">
+                              {alert.student.first_name} {alert.student.last_name}
                             </span>
-                          )}
-                          <span className="alerts-item-caret" aria-hidden="true">{'\u25BE'}</span>
-                        </button>
+                            {type === 'stale' && (
+                              <span className="alerts-item-detail">{alert.daysSince} days ago</span>
+                            )}
+                            {type === 'upcoming' && (
+                              <span className="alerts-item-detail">{formatDate(alert.mitzvahDate)} ({alert.daysUntil}d)</span>
+                            )}
+                            {(type === 'critical' || type === 'behind') && alert.progress && alert.progress.total > 0 && (
+                              <span className="alerts-item-detail">
+                                {formatMasterySummary(alert.progress)}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            className="alerts-item-menu-btn"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleChipClick(type, alert.student.id);
+                            }}
+                            aria-haspopup="menu"
+                            aria-expanded={isOpen}
+                            aria-label={`More actions for ${alert.student.first_name} ${alert.student.last_name}`}
+                          >
+                            <span aria-hidden="true">{'\u22EE'}</span>
+                          </button>
+                        </div>
 
                         {isOpen && (
                           <AlertChipMenu
                             alert={alert}
                             alertType={type}
                             lastSessionMap={lastSessionMap}
-                            onSelectStudent={onSelectStudent}
                             onClose={closeMenu}
                           />
                         )}

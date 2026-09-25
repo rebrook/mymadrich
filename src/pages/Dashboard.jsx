@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
@@ -119,6 +119,15 @@ export default function Dashboard() {
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [loadingStudents, setLoadingStudents] = useState(true);
+  const [searchParams] = useSearchParams();
+
+  // Restore a selected student from a deep link (e.g. /dashboard?student=<id>),
+  // such as the "Back to profile" link from Session History.
+  useEffect(() => {
+    const studentParam = searchParams.get('student');
+    if (studentParam) setSelectedStudentId(studentParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [dashData, setDashData] = useState(null);
   const [loadingDash, setLoadingDash] = useState(false);
@@ -2728,7 +2737,13 @@ export default function Dashboard() {
                     <div className="tut-card-top">
                       <span className="tut-card-avatar">{initials}</span>
                       <div className="tut-card-top-text">
-                        <div className="tut-card-name">{s.first_name} {s.last_name}</div>
+                        <button
+                          type="button"
+                          className="student-name-link tut-card-name"
+                          onClick={() => setSelectedStudentId(s.id)}
+                        >
+                          {s.first_name} {s.last_name}
+                        </button>
                         <div className="tut-card-meta">
                           {s.mitzvah_date ? `Bimah ${formatDate(s.mitzvah_date)}` : 'No date set'}
                         </div>

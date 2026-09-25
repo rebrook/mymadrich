@@ -631,7 +631,13 @@ export default function TutorMyWeek() {
                       <div className="tw-stu">
                         <span className="tw-av">{initials}</span>
                         <span>
-                          <div className="tw-name">{s.first_name} {s.last_name}</div>
+                          <button
+                            type="button"
+                            className="student-name-link tw-name"
+                            onClick={() => navigate(`/dashboard?student=${s.id}`)}
+                          >
+                            {s.first_name} {s.last_name}
+                          </button>
                           <div className="tw-sub">
                             {mitzvahLabel(s.mitzvah_type)}
                             {reading && (

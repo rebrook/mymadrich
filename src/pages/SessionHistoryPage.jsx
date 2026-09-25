@@ -318,6 +318,7 @@ export default function SessionHistoryPage() {
 
   // ---- Determine UI visibility ----
   const isStaff = role === ROLES.ADMIN || role === ROLES.TUTOR;
+  const isAdmin = role === ROLES.ADMIN;
   const showSelector = isStaff || students.length > 1;
   const canEdit = isStaff;
   const canDelete = role === ROLES.ADMIN;
@@ -649,6 +650,7 @@ export default function SessionHistoryPage() {
                 {sessions.map((session) => {
                   const isExpanded = expandedId === session.id;
                   const bimahDate = allStudents ? session.mitzvahDate : selectedStudent?.mitzvah_date;
+                  const profileStudentId = allStudents ? session.student_id : selectedStudentId;
 
                   return (
                     <div
@@ -669,9 +671,30 @@ export default function SessionHistoryPage() {
                             {formatDate(session.session_date)}
                           </span>
                           <span className="session-history-tutor form-hint">
-                            {/* In all-students mode, show student name before tutor */}
+                            {/* In all-students mode, show student name before tutor — clickable for staff */}
                             {allStudents && session.studentName && (
-                              <span className="session-history-student-name">{session.studentName}</span>
+                              isAdmin ? (
+                                <Link
+                                  to={`/admin/students/${profileStudentId}`}
+                                  className="session-history-student-name student-name-link"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {session.studentName}
+                                </Link>
+                              ) : isStaff ? (
+                                <button
+                                  type="button"
+                                  className="student-name-link session-history-student-name"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/dashboard?student=${profileStudentId}`);
+                                  }}
+                                >
+                                  {session.studentName}
+                                </button>
+                              ) : (
+                                <span className="session-history-student-name">{session.studentName}</span>
+                              )
                             )}
                             {tutorName(session.tutor)}
                             {bimahDate && (

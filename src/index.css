@@ -295,6 +295,23 @@ a:hover {
   text-decoration: underline;
 }
 
+/* Clickable student name that triggers in-page state (setSelectedStudentId)
+   rather than real navigation, styled to match the default <a> above. */
+.student-name-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.student-name-link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
 /* Screen reader only */
 .sr-only {
   position: absolute;
@@ -3355,6 +3372,8 @@ select.input {
 }
 
 .tut-card-name {
+  display: block;
+  width: 100%;
   font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
@@ -5299,12 +5318,42 @@ select.input {
   border-color: var(--color-primary);
 }
 
-/* Caret indicator on each chip */
-.alerts-item-caret {
-  font-size: 0.7rem;
-  color: var(--color-text-secondary);
+.alerts-item-name-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.alerts-item-name-btn:hover .alerts-item-name {
+  text-decoration: underline;
+  color: var(--color-primary);
+}
+
+.alerts-item-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px 4px;
   margin-left: var(--space-1);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.9rem;
   line-height: 1;
+}
+
+.alerts-item-menu-btn:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-primary);
 }
 
 /* Desktop dropdown menu */
@@ -12184,6 +12233,8 @@ select.input {
 }
 
 .tw-name {
+  display: block;
+  width: 100%;
   font-family: var(--font-display);
   font-weight: var(--weight-bold);
   font-size: 1.15rem;
