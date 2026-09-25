@@ -2634,6 +2634,16 @@ export default function Dashboard() {
               {'\u2190'} Cohort overview
             </button>
           )}
+
+          {/* Admin: edit this student directly */}
+          {selectedStudentId && role === ROLES.ADMIN && (
+            <Link
+              to={`/admin/students/${selectedStudentId}?edit=true`}
+              className="btn btn-outline btn-small"
+            >
+              Edit
+            </Link>
+          )}
         </div>
       )}
 
