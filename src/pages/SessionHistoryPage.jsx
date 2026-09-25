@@ -154,6 +154,13 @@ function last30DaysStart() {
   return d.toISOString().slice(0, 10);
 }
 
+/** Returns YYYY-MM-DD for 7 days ago. */
+function last7DaysStart() {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Returns today as YYYY-MM-DD. */
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -345,6 +352,10 @@ export default function SessionHistoryPage() {
   function handlePreset(preset) {
     setActivePreset(preset);
     switch (preset) {
+      case 'this-week':
+        setDateFrom(last7DaysStart());
+        setDateTo(todayStr());
+        break;
       case 'this-month':
         setDateFrom(thisMonthStart());
         setDateTo(todayStr());
@@ -580,6 +591,13 @@ export default function SessionHistoryPage() {
             )}
           </div>
           <div className="session-filter-presets">
+            <button
+              className={`session-filter-preset ${activePreset === 'this-week' ? 'session-filter-preset-active' : ''}`}
+              onClick={() => handlePreset('this-week')}
+              type="button"
+            >
+              This week
+            </button>
             <button
               className={`session-filter-preset ${activePreset === 'this-month' ? 'session-filter-preset-active' : ''}`}
               onClick={() => handlePreset('this-month')}
