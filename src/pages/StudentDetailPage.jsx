@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useStudent } from '../hooks/useStudent';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -17,6 +17,8 @@ import DvarTorahSection from '../components/admin/DvarTorahSection';
 
 export default function StudentDetailPage() {
   const { studentId } = useParams();
+  const [searchParams] = useSearchParams();
+  const initialEditMode = searchParams.get('edit') === 'true';
   const { role } = useAuth();
   const {
     student,
@@ -211,7 +213,7 @@ export default function StudentDetailPage() {
         <PaceSection pace={paceData} elementsSummary={elemSummary} rationale={getPaceRationale(paceData)} />
       )}
 
-      <StudentInfoSection student={student} onUpdate={updateStudent} />
+      <StudentInfoSection student={student} onUpdate={updateStudent} initialEditMode={initialEditMode} />
 
       <ReadingsSection
         student={student}

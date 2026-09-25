@@ -6853,6 +6853,28 @@ select.input {
   border-radius: 2px;
 }
 
+.student-edit-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: var(--space-1);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.student-edit-link:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-primary);
+}
+
+.student-edit-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* --- Admin Toolbar --- */
 
 .admin-toolbar {

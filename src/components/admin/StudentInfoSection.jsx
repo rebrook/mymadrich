@@ -9,8 +9,8 @@ const STATUS_OPTIONS = ['active', 'completed', 'deferred', 'withdrawn', 'archive
 const MITZVAH_TYPE_OPTIONS = ['bar', 'bat', "b'nai"];
 const SCHOOL_OPTIONS = ['KSDS', 'RRS', 'Other'];
 
-export default function StudentInfoSection({ student, onUpdate }) {
-  const [editing, setEditing] = useState(false);
+export default function StudentInfoSection({ student, onUpdate, initialEditMode = false }) {
+  const [editing, setEditing] = useState(initialEditMode);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [tutors, setTutors] = useState([]);
