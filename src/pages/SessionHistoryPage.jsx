@@ -511,6 +511,24 @@ export default function SessionHistoryPage() {
                   placeholder="Switch student"
                 />
               )}
+              {!allStudents && selectedStudentId && (
+                isAdmin ? (
+                  <Link
+                    to={`/admin/students/${selectedStudentId}`}
+                    className="btn btn-small btn-outline"
+                  >
+                    View profile
+                  </Link>
+                ) : isStaff ? (
+                  <button
+                    type="button"
+                    className="btn btn-small btn-outline"
+                    onClick={() => navigate(`/dashboard?student=${selectedStudentId}`)}
+                  >
+                    View profile
+                  </button>
+                ) : null
+              )}
               {isStaff && (
                 <button
                   className={`btn btn-small ${allStudents ? 'btn-primary' : 'btn-outline'}`}
