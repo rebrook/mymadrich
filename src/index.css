@@ -9293,16 +9293,9 @@ select.input {
   background-color: var(--color-primary-light);
 }
 
-.readiness-name-cell a {
+.readiness-name-text {
   font-weight: 600;
   color: var(--color-text);
-  text-decoration: underline;
-}
-
-.readiness-name-cell a:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-  border-radius: 2px;
 }
 
 /* Progress bar cell */
