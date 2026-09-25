@@ -549,7 +549,14 @@ export default function SessionHistoryPage() {
                 />
               )}
               {!allStudents && selectedStudentId && (
-                isAdmin ? (
+                searchParams.get('from') === 'dashboard' ? (
+                  <Link
+                    to={`/dashboard?student=${selectedStudentId}`}
+                    className="btn btn-small btn-outline"
+                  >
+                    {'\u2190'} Back to profile
+                  </Link>
+                ) : isAdmin ? (
                   <Link
                     to={`/admin/students/${selectedStudentId}`}
                     className="btn btn-small btn-outline"

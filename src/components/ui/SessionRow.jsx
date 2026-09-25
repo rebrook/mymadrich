@@ -30,7 +30,7 @@ export default function SessionRow({ session, studentId }) {
 
   return (
     <Link
-      to={`/sessions?student=${studentId}&session=${session.id}`}
+      to={`/sessions?student=${studentId}&session=${session.id}&from=dashboard`}
       className="session-row"
     >
       <span className="session-row-date">{dateStr}</span>
