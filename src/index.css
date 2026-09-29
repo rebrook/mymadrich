@@ -7173,6 +7173,12 @@ select.input {
   color: var(--color-text-secondary);
 }
 
+.session-detail-lesson-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
 .session-detail-header-bimah {
   font-size: var(--text-sm);
   color: var(--color-text-secondary);

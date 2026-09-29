@@ -79,6 +79,7 @@ export default function LogSessionPage() {
   const [elementProgress, setElementProgress] = useState({});
   const [homeworkSelections, setHomeworkSelections] = useState({});
   const [homeworkNotes, setHomeworkNotes] = useState('');
+  const [lessonNotes, setLessonNotes] = useState('');
   const [homeworkMinutes, setHomeworkMinutes] = useState('');
   const [nextSessionDate, setNextSessionDate] = useState('');
   const [nextSessionTime, setNextSessionTime] = useState('');
@@ -246,6 +247,7 @@ export default function LogSessionPage() {
         setSessionDate(session.session_date || today);
         setMinutesWorked(session.minutes_worked != null ? String(session.minutes_worked) : '');
         setHomeworkNotes(session.homework_notes || '');
+        setLessonNotes(session.lesson_notes || '');
         setHomeworkMinutes(session.homework_minutes_per_day ? String(session.homework_minutes_per_day) : '');
         setNextSessionDate(session.next_session_date || '');
         setNextSessionTime(session.next_session_time || '');
@@ -738,6 +740,11 @@ export default function LogSessionPage() {
     setIsDirty(true);
   }
 
+  function handleLessonNotesChange(value) {
+    setLessonNotes(value);
+    setIsDirty(true);
+  }
+
   function handleMinutesChange(value) {
     setHomeworkMinutes(value);
     setIsDirty(true);
@@ -902,6 +909,7 @@ export default function LogSessionPage() {
             next_session_time: nextSessionTime || null,
             next_session_end_time: nextSessionEndTime || null,
             homework_notes: homeworkNotes.trim() || null,
+            lesson_notes: lessonNotes.trim() || null,
             homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
           })
           .eq('id', sessionId);
@@ -926,6 +934,7 @@ export default function LogSessionPage() {
             next_session_time: nextSessionTime || null,
             next_session_end_time: nextSessionEndTime || null,
             homework_notes: homeworkNotes.trim() || null,
+            lesson_notes: lessonNotes.trim() || null,
             homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
           })
           .select()
@@ -1027,6 +1036,7 @@ export default function LogSessionPage() {
     setElementProgress({});
     setHomeworkSelections({});
     setHomeworkNotes('');
+    setLessonNotes('');
     setHomeworkMinutes('');
     setMinutesWorked('');
     setNextSessionDate('');
@@ -1528,6 +1538,29 @@ export default function LogSessionPage() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* ============ Lesson Notes ============ */}
+          <div className="card">
+            <div className="section-header">
+              <h3>Lesson Notes</h3>
+            </div>
+            <div className="form-group" style={{ marginTop: 'var(--space-3)' }}>
+              <label className="form-label" htmlFor="lesson-notes">
+                Additional lesson notes (optional)
+              </label>
+              <textarea
+                id="lesson-notes"
+                className="input"
+                rows={4}
+                value={lessonNotes}
+                onChange={(e) => handleLessonNotesChange(e.target.value)}
+                placeholder="A narrative of the lesson, if you need one..."
+              />
+              <span className="form-hint">
+                Shown in session history to anyone who can view this session, including the family.
+              </span>
+            </div>
           </div>
 
           {/* ============ Homework Builder ============ */}

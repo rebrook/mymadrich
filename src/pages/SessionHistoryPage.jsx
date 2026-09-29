@@ -941,6 +941,14 @@ export default function SessionHistoryPage() {
                                 </div>
                               )}
 
+                              {/* Lesson notes (narrative) */}
+                              {session.lesson_notes && (
+                                <div className="session-detail-group">
+                                  <h4>Lesson Notes</h4>
+                                  <p className="session-detail-lesson-notes">{session.lesson_notes}</p>
+                                </div>
+                              )}
+
                               {/* Homework */}
                               {(detail.homework.length > 0 || session.homework_notes) && (
                                 <div className="session-detail-group">
@@ -990,7 +998,8 @@ export default function SessionHistoryPage() {
                               {detail.readingGroups.length === 0 &&
                                 Object.keys(detail.elementGroups).length === 0 &&
                                 detail.homework.length === 0 &&
-                                !session.homework_notes && (
+                                !session.homework_notes &&
+                                !session.lesson_notes && (
                                 <p className="form-hint">No detail recorded for this session.</p>
                               )}
                             </>
