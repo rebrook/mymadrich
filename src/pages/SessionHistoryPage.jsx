@@ -185,8 +185,13 @@ export default function SessionHistoryPage() {
 
   // ---- Filter state (persisted to localStorage) ----
   const persisted = useMemo(() => loadPersistedFilters(), []);
-  const [dateFrom, setDateFrom] = useState(persisted?.dateFrom || '');
-  const [dateTo, setDateTo] = useState(persisted?.dateTo || '');
+  // An explicit ?student= deep link (e.g. clicking a session from a student's
+  // profile) starts with a clean slate. A leftover date range or preset from
+  // an earlier visit would hide sessions outside that range, including the
+  // one the link points at.
+  const hasStudentDeepLink = Boolean(searchParams.get('student'));
+  const [dateFrom, setDateFrom] = useState(hasStudentDeepLink ? '' : (persisted?.dateFrom || ''));
+  const [dateTo, setDateTo] = useState(hasStudentDeepLink ? '' : (persisted?.dateTo || ''));
   const [allStudents, setAllStudents] = useState(() => {
     // An explicit ?student= deep link should always win over a remembered
     // "All Students" preference — otherwise a link meant to show one
@@ -194,7 +199,7 @@ export default function SessionHistoryPage() {
     if (searchParams.get('student')) return false;
     return persisted?.allStudents || false;
   });
-  const [activePreset, setActivePreset] = useState(persisted?.activePreset || null);
+  const [activePreset, setActivePreset] = useState(hasStudentDeepLink ? null : (persisted?.activePreset || null));
   const [rangeError, setRangeError] = useState(null);
 
   // Cohort start date for the selected student (for "Cohort to date" preset)
@@ -261,7 +266,7 @@ export default function SessionHistoryPage() {
     requestAnimationFrame(() => {
       document
         .getElementById(`session-card-${sessionParam}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }, [sessionParam, sessions, loading, fetchDetail]);
 

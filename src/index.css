@@ -7109,6 +7109,9 @@ select.input {
 
 .session-history-student-name::after {
   content: ' · ';
+  display: inline-block;
+  white-space: pre;
+  text-decoration: none;
   color: var(--color-text-secondary);
   font-weight: 400;
 }
