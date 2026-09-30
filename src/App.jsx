@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Outlet, Navigate, useMatches } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useMatches, ScrollRestoration } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
@@ -43,6 +43,10 @@ function RootLayout() {
   return (
     <AuthProvider>
       <Outlet />
+      {/* New pages open at the top; Back/Forward restores the previous
+          scroll position. Without this, a SPA keeps the old page's scroll
+          offset, so a link clicked from a scrolled page opens far down. */}
+      <ScrollRestoration />
     </AuthProvider>
   );
 }
