@@ -486,7 +486,7 @@ export default function StudentInfoSection({ student, onUpdate, initialEditMode 
               <span>Family-tutored</span>
             </label>
             <span className="form-hint">
-              Taught by a family member outside this system. Hides this student from pace, inactivity, and missing-work alerts. They stay in all lists.
+              Taught by a family member outside this system. Pace is not calculated, and this student is left out of alerts. They stay in all lists.
             </span>
           </div>
           <div className="form-group">

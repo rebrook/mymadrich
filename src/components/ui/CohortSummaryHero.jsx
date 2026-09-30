@@ -14,7 +14,8 @@ const PACE_PILLS = [
   { key: 'behind', label: 'Behind', color: 'var(--color-pace-behind)' },
   { key: 'critical', label: 'Critical', color: 'var(--color-pace-critical)' },
   { key: 'completed', label: 'Completed', color: 'var(--color-accent)' },
-  { key: 'not_started', label: 'Not started', color: 'rgba(255,255,255,0.35)' },
+  { key: 'not_started', label: 'Not started', color: 'rgba(255,255,255,0.35)', title: 'No readings assigned yet or no pace data' },
+  { key: 'family_tutored', label: 'Family-tutored', color: 'rgba(255,255,255,0.7)', title: 'Taught by a family member; pace is not tracked here' },
 ];
 
 export default function CohortSummaryHero({
@@ -108,7 +109,7 @@ export default function CohortSummaryHero({
               <div
                 key={pill.key}
                 className="cs-pill"
-                title={pill.key === 'not_started' ? 'No readings assigned yet or no pace data' : undefined}
+                title={pill.title}
               >
                 <b>{count}</b>
                 <span>

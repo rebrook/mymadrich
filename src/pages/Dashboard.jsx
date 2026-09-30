@@ -86,6 +86,7 @@ const PACE_SORT_PRIORITY = {
   completed: 3,
   not_started: 4,
   no_verses: 4,
+  family_tutored: 4,
 };
 
 /** Sort students attention-first: critical > behind > on-track/ahead, then soonest bimah date. */
@@ -704,7 +705,7 @@ export default function Dashboard() {
           break;
         }
         case 'pace': {
-          const SEVERITY = { critical: 0, past_due: 0, behind: 1, not_started: 2, no_verses: 2, on_track: 3, ahead: 4, completed: 5 };
+          const SEVERITY = { critical: 0, past_due: 0, behind: 1, not_started: 2, no_verses: 2, family_tutored: 2, on_track: 3, ahead: 4, completed: 5 };
           const ra = SEVERITY[paceMap[a.id]?.pace?.status] ?? 99;
           const rb = SEVERITY[paceMap[b.id]?.pace?.status] ?? 99;
           cmp = ra - rb;
@@ -734,7 +735,7 @@ export default function Dashboard() {
 
     let totalVerse = 0;
     let masteredVerse = 0;
-    const counts = { on_track: 0, behind: 0, critical: 0, completed: 0, not_started: 0 };
+    const counts = { on_track: 0, behind: 0, critical: 0, completed: 0, not_started: 0, family_tutored: 0 };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -743,7 +744,9 @@ export default function Dashboard() {
 
     list.forEach((s) => {
       const prog = progressMap[s.id];
-      if (prog) {
+      // Family-tutored students log no progress here, so they are left out of
+      // the readiness percentage rather than dragging it down.
+      if (prog && !s.family_tutored) {
         totalVerse += prog.total;
         masteredVerse += prog.mastered;
       }
@@ -755,7 +758,8 @@ export default function Dashboard() {
       // not an audit. Pace-based buckets no longer apply.
       if (mitzvahHasPassed) {
         counts.completed += 1;
-      } else if (paceStatus === 'on_track' || paceStatus === 'ahead') counts.on_track += 1;
+      } else if (s.family_tutored) counts.family_tutored += 1;
+      else if (paceStatus === 'on_track' || paceStatus === 'ahead') counts.on_track += 1;
       else if (paceStatus === 'behind') counts.behind += 1;
       else if (paceStatus === 'critical' || paceStatus === 'past_due') counts.critical += 1;
       else if (paceStatus === 'completed') counts.completed += 1;

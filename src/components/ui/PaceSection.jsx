@@ -23,7 +23,8 @@ export default function PaceSection({ pace, elementsSummary, rationale }) {
 
   const showDetails = pace.status !== PACE_STATUS.NO_VERSES &&
     pace.status !== PACE_STATUS.COMPLETED &&
-    pace.status !== PACE_STATUS.NOT_STARTED;
+    pace.status !== PACE_STATUS.NOT_STARTED &&
+    pace.status !== PACE_STATUS.FAMILY_TUTORED;
 
   return (
     <div className="pace-section">

@@ -9,6 +9,7 @@ const PACE = {
   past_due:    { label: 'Past Due',    color: 'var(--color-pace-critical)',  icon: 'alert' },
   not_started: { label: 'Not Started', color: 'var(--color-pace-neutral)',   icon: null },
   no_verses:   { label: 'No Verses',   color: 'var(--color-pace-neutral)',   icon: null },
+  family_tutored: { label: 'Family-tutored', color: 'var(--color-pace-neutral)', icon: null },
 };
 
 /** Inline SVG icons at 12px, matching the 20x20 / 1.5px stroke style. */
