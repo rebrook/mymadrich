@@ -16,6 +16,7 @@ export const PACE_STATUS = {
   COMPLETED: 'completed',
   PAST_DUE: 'past_due',
   NO_VERSES: 'no_verses',
+  FAMILY_TUTORED: 'family_tutored',
 };
 
 export const PACE_LABELS = {
@@ -27,6 +28,7 @@ export const PACE_LABELS = {
   [PACE_STATUS.COMPLETED]: 'Completed',
   [PACE_STATUS.PAST_DUE]: 'Past Due',
   [PACE_STATUS.NO_VERSES]: 'No Verses',
+  [PACE_STATUS.FAMILY_TUTORED]: 'Family-tutored',
 };
 
 export const PACE_COLORS = {
@@ -38,6 +40,7 @@ export const PACE_COLORS = {
   [PACE_STATUS.COMPLETED]: '#3d8b40',
   [PACE_STATUS.PAST_DUE]: '#c53030',
   [PACE_STATUS.NO_VERSES]: '#6b7280',
+  [PACE_STATUS.FAMILY_TUTORED]: '#6b7280',
 };
 
 // ---- Thresholds ----
@@ -128,6 +131,22 @@ export function calculatePace({
 }) {
   const targetDate = getTargetDate(student, cohort);
   const lessonsPerWeek = getLessonsPerWeek(student, cohort);
+
+  // Family-tutored students are taught off-system, so sessions and progress
+  // are not logged here and a pace cannot be calculated meaningfully.
+  if (student?.family_tutored) {
+    return {
+      status: PACE_STATUS.FAMILY_TUTORED,
+      masteredCount: masteredVerseCount || 0,
+      totalCount: totalVerseCount || 0,
+      masteryPct: 0,
+      expectedPct: null,
+      paceDelta: null,
+      targetDate,
+      projectedCompletionDate: null,
+      lessonsPerWeek,
+    };
+  }
 
   // Edge case: no verses assigned
   if (!totalVerseCount || totalVerseCount === 0) {
@@ -355,6 +374,9 @@ export function getPaceSummaryText(paceResult) {
     case PACE_STATUS.NO_VERSES:
       return 'No verses assigned';
 
+    case PACE_STATUS.FAMILY_TUTORED:
+      return 'Taught by a family member. Pace is not tracked here.';
+
     case PACE_STATUS.PAST_DUE:
       return `${masteredCount} of ${totalCount} verses learned with trope. Target date has passed.`;
 
@@ -439,6 +461,9 @@ export function getPaceRationale(paceResult) {
 
     case PACE_STATUS.NO_VERSES:
       return 'No verses assigned yet.';
+
+    case PACE_STATUS.FAMILY_TUTORED:
+      return "Family-tutored: progress isn't logged in MyMadrich, so pace isn't calculated.";
 
     default:
       return '';
