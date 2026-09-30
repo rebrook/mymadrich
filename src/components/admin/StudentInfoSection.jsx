@@ -35,6 +35,7 @@ export default function StudentInfoSection({ student, onUpdate, initialEditMode 
     notes: '',
     lessons_per_week: '',
     target_completion_date: '',
+    family_tutored: false,
   });
 
   // Load tutors for dropdown (now includes pending invitations)
@@ -65,6 +66,7 @@ export default function StudentInfoSection({ student, onUpdate, initialEditMode 
         notes: student.notes || '',
         lessons_per_week: student.lessons_per_week != null ? String(student.lessons_per_week) : '',
         target_completion_date: student.target_completion_date || '',
+        family_tutored: Boolean(student.family_tutored),
       });
 
       // Build unified assigned list: profile tutors from student_tutors + pending from staging table
@@ -209,6 +211,7 @@ export default function StudentInfoSection({ student, onUpdate, initialEditMode 
         notes: form.notes.trim() || null,
         lessons_per_week: form.lessons_per_week ? parseInt(form.lessons_per_week, 10) : null,
         target_completion_date: form.target_completion_date || null,
+        family_tutored: form.family_tutored,
       });
       setEditing(false);
     } catch (err) {
@@ -232,6 +235,7 @@ export default function StudentInfoSection({ student, onUpdate, initialEditMode 
         notes: student.notes || '',
         lessons_per_week: student.lessons_per_week != null ? String(student.lessons_per_week) : '',
         target_completion_date: student.target_completion_date || '',
+        family_tutored: Boolean(student.family_tutored),
       });
 
       // Reset assigned tutors to current state
@@ -321,6 +325,10 @@ export default function StudentInfoSection({ student, onUpdate, initialEditMode 
     // No tutors at all
     if (student.tutor_id) {
       return student.tutor?.display_name || '\u2014';
+    }
+
+    if (student.family_tutored) {
+      return <span className="badge badge-family-tutored">Family-tutored</span>;
     }
 
     return <span className="badge badge-unassigned">Unassigned</span>;
@@ -467,6 +475,19 @@ export default function StudentInfoSection({ student, onUpdate, initialEditMode 
                 ))}
               </select>
             </div>
+          </div>
+          <div className="form-group">
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={form.family_tutored}
+                onChange={(e) => setForm({ ...form, family_tutored: e.target.checked })}
+              />
+              <span>Family-tutored</span>
+            </label>
+            <span className="form-hint">
+              Taught by a family member outside this system. Hides this student from pace, inactivity, and missing-work alerts. They stay in all lists.
+            </span>
           </div>
           <div className="form-group">
             <label className="form-label">Notes</label>

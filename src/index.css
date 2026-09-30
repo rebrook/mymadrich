@@ -6933,6 +6933,12 @@ select.input {
   color: #8a5a00;
 }
 
+.badge-family-tutored {
+  background-color: var(--color-surface-inset);
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+}
+
 .badge-pending-tutor {
   background-color: transparent;
   color: var(--color-text-secondary);

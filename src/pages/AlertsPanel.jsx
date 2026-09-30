@@ -217,6 +217,12 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
       const lastSession = lastSessionMap[s.id];
       const progress = progressMap[s.id];
 
+      // Family-tutored students are taught off-system, so sessions and
+      // progress are not logged here. Pace, staleness, and missing-work
+      // alerts would always fire for them, so they are suppressed. The
+      // informational "upcoming" alert is kept.
+      const suppressProgressAlerts = Boolean(s.family_tutored);
+
       // Once the mitzvah date has passed, the event happened — treat it
       // as a celebration, not something to audit. Pace, staleness, and
       // missing-work alerts no longer apply. ("upcoming" already can't
@@ -224,15 +230,15 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
       const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < today;
       if (mitzvahHasPassed) return;
 
-      if (paceStatus === 'critical') {
+      if (paceStatus === 'critical' && !suppressProgressAlerts) {
         alerts.push({ type: 'critical', student: s, detail: paceData.pace, progress });
       }
 
-      if (paceStatus === 'behind') {
+      if (paceStatus === 'behind' && !suppressProgressAlerts) {
         alerts.push({ type: 'behind', student: s, detail: paceData.pace, progress });
       }
 
-      if (lastSession) {
+      if (lastSession && !suppressProgressAlerts) {
         const sessionDate = new Date(lastSession + 'T00:00:00');
         const daysSince = Math.floor((today - sessionDate) / (1000 * 60 * 60 * 24));
         if (daysSince > 14) {
@@ -240,7 +246,7 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
         }
       }
 
-      if (!lastSession && progress && progress.total > 0) {
+      if (!lastSession && progress && progress.total > 0 && !suppressProgressAlerts) {
         alerts.push({ type: 'no_sessions', student: s });
       }
 
@@ -252,7 +258,7 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
         }
       }
 
-      if (s.status === 'active' && (!progress || progress.total === 0)) {
+      if (s.status === 'active' && (!progress || progress.total === 0) && !suppressProgressAlerts) {
         alerts.push({ type: 'no_readings', student: s });
       }
     });

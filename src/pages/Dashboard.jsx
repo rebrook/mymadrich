@@ -221,7 +221,7 @@ export default function Dashboard() {
         .from('students')
         .select(`
           id, first_name, last_name, hebrew_name, mitzvah_date, mitzvah_type, tutor_id,
-          lessons_per_week, target_completion_date, created_at, status,
+          lessons_per_week, target_completion_date, created_at, status, family_tutored,
           tutor:profiles!tutor_id(display_name, email),
           cohort:cohorts!cohort_id(id, name, start_date, completion_buffer_weeks, default_lessons_per_week),
           student_guardians(name, email, is_primary),
@@ -2248,7 +2248,13 @@ export default function Dashboard() {
                               </div>
                             </td>
                             <td>{formatDate(s.mitzvah_date)}</td>
-                            <td>{tutorListLabel(s.student_tutors, s.tutor, '\u2014')}</td>
+                            <td>
+                              {s.family_tutored && !((s.student_tutors || []).length > 0 || s.tutor_id) ? (
+                                <span className="badge badge-family-tutored">Family-tutored</span>
+                              ) : (
+                                tutorListLabel(s.student_tutors, s.tutor, '\u2014')
+                              )}
+                            </td>
                             <td>
                               {lastDate ? (
                                 <span className={stale ? 'session-stale' : ''}>

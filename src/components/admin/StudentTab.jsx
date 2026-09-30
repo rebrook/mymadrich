@@ -800,6 +800,8 @@ export default function StudentTab() {
                   <td data-label="Tutor" className="mobile-hide">
                     {hasAssignedTutors(s) ? (
                       tutorListLabel(s.student_tutors, s.tutor)
+                    ) : s.family_tutored ? (
+                      <span className="badge badge-family-tutored">Family-tutored</span>
                     ) : (
                       <span className="badge badge-unassigned">Unassigned</span>
                     )}
