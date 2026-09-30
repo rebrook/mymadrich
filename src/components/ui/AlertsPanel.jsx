@@ -31,7 +31,7 @@ function formatDate(dateStr) {
  * Action menu for an alert chip. Desktop: dropdown below the chip.
  * Mobile: bottom sheet overlay with 44px touch targets.
  */
-function AlertChipMenu({ alert, alertType, lastSessionMap, onSelectStudent, onClose }) {
+function AlertChipMenu({ alert, alertType, lastSessionMap, onClose }) {
   const menuRef = useRef(null);
   const student = alert.student;
   const studentFullName = `${student.first_name} ${student.last_name}`;
@@ -108,11 +108,6 @@ function AlertChipMenu({ alert, alertType, lastSessionMap, onSelectStudent, onCl
     }
   }
 
-  function handleJump() {
-    onSelectStudent(student.id);
-    onClose();
-  }
-
   function handleEmailTutor() {
     if (nudgeMailto) window.open(nudgeMailto, '_self');
     onClose();
@@ -137,12 +132,6 @@ function AlertChipMenu({ alert, alertType, lastSessionMap, onSelectStudent, onCl
   }
 
   const actions = [
-    {
-      label: 'Jump to student',
-      icon: '\u2192',
-      onClick: handleJump,
-      disabled: false,
-    },
     {
       label: nudgeMailto ? 'Email tutor' : 'Email tutor (no email)',
       icon: '\u2709',
@@ -228,6 +217,12 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
       const lastSession = lastSessionMap[s.id];
       const progress = progressMap[s.id];
 
+      // Family-tutored students are taught off-system, so sessions and
+      // progress are not logged here. Pace, staleness, and missing-work
+      // alerts would always fire for them, so they are suppressed. The
+      // informational "upcoming" alert is kept.
+      const suppressProgressAlerts = Boolean(s.family_tutored);
+
       // Once the mitzvah date has passed, the event happened — treat it
       // as a celebration, not something to audit. Pace, staleness, and
       // missing-work alerts no longer apply. ("upcoming" already can't
@@ -235,15 +230,15 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
       const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < today;
       if (mitzvahHasPassed) return;
 
-      if (paceStatus === 'critical') {
+      if (paceStatus === 'critical' && !suppressProgressAlerts) {
         alerts.push({ type: 'critical', student: s, detail: paceData.pace, progress });
       }
 
-      if (paceStatus === 'behind') {
+      if (paceStatus === 'behind' && !suppressProgressAlerts) {
         alerts.push({ type: 'behind', student: s, detail: paceData.pace, progress });
       }
 
-      if (lastSession) {
+      if (lastSession && !suppressProgressAlerts) {
         const sessionDate = new Date(lastSession + 'T00:00:00');
         const daysSince = Math.floor((today - sessionDate) / (1000 * 60 * 60 * 24));
         if (daysSince > 14) {
@@ -251,7 +246,7 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
         }
       }
 
-      if (!lastSession && progress && progress.total > 0) {
+      if (!lastSession && progress && progress.total > 0 && !suppressProgressAlerts) {
         alerts.push({ type: 'no_sessions', student: s });
       }
 
@@ -263,7 +258,7 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
         }
       }
 
-      if (s.status === 'active' && (!progress || progress.total === 0)) {
+      if (s.status === 'active' && (!progress || progress.total === 0) && !suppressProgressAlerts) {
         alerts.push({ type: 'no_readings', student: s });
       }
     });
@@ -377,39 +372,50 @@ export default function AlertsPanel({ students, paceMap, lastSessionMap, progres
 
                     return (
                       <div key={chipKey} className="alerts-chip-wrapper">
-                        <button
-                          className={`alerts-item ${isOpen ? 'alerts-item-active' : ''}`}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleChipClick(type, alert.student.id);
-                          }}
-                          aria-haspopup="menu"
-                          aria-expanded={isOpen}
-                        >
-                          <span className="alerts-item-name">
-                            {alert.student.first_name} {alert.student.last_name}
-                          </span>
-                          {type === 'stale' && (
-                            <span className="alerts-item-detail">{alert.daysSince} days ago</span>
-                          )}
-                          {type === 'upcoming' && (
-                            <span className="alerts-item-detail">{formatDate(alert.mitzvahDate)} ({alert.daysUntil}d)</span>
-                          )}
-                          {(type === 'critical' || type === 'behind') && alert.progress && alert.progress.total > 0 && (
-                            <span className="alerts-item-detail">
-                              {formatMasterySummary(alert.progress)}
+                        <div className={`alerts-item ${isOpen ? 'alerts-item-active' : ''}`}>
+                          <button
+                            className="alerts-item-name-btn"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectStudent(alert.student.id);
+                            }}
+                          >
+                            <span className="alerts-item-name">
+                              {alert.student.first_name} {alert.student.last_name}
                             </span>
-                          )}
-                          <span className="alerts-item-caret" aria-hidden="true">{'\u25BE'}</span>
-                        </button>
+                            {type === 'stale' && (
+                              <span className="alerts-item-detail">{alert.daysSince} days ago</span>
+                            )}
+                            {type === 'upcoming' && (
+                              <span className="alerts-item-detail">{formatDate(alert.mitzvahDate)} ({alert.daysUntil}d)</span>
+                            )}
+                            {(type === 'critical' || type === 'behind') && alert.progress && alert.progress.total > 0 && (
+                              <span className="alerts-item-detail">
+                                {formatMasterySummary(alert.progress)}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            className="alerts-item-menu-btn"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleChipClick(type, alert.student.id);
+                            }}
+                            aria-haspopup="menu"
+                            aria-expanded={isOpen}
+                            aria-label={`More actions for ${alert.student.first_name} ${alert.student.last_name}`}
+                          >
+                            <span aria-hidden="true">{'\u22EE'}</span>
+                          </button>
+                        </div>
 
                         {isOpen && (
                           <AlertChipMenu
                             alert={alert}
                             alertType={type}
                             lastSessionMap={lastSessionMap}
-                            onSelectStudent={onSelectStudent}
                             onClose={closeMenu}
                           />
                         )}
