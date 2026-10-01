@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -28,6 +28,8 @@ import StatTile from '../components/ui/StatTile';
 import { ElementGroup } from '../components/ui/ElementRow';
 import PersonRow from '../components/ui/PersonRow';
 import SessionRow from '../components/ui/SessionRow';
+import NextSessionModal from '../components/ui/NextSessionModal';
+import { isUpcomingDate } from '../utils/nextSession';
 import TutorFirstRunStrip from '../components/ui/TutorFirstRunStrip';
 import InternalNotesSection from '../components/admin/InternalNotesSection';
 import { useInternalNotes } from '../hooks/useInternalNotes';
@@ -131,6 +133,38 @@ export default function Dashboard() {
   }, []);
 
   const [dashData, setDashData] = useState(null);
+  const [nextSessionDialog, setNextSessionDialog] = useState(null); // { student, view }
+  const [liveMessage, setLiveMessage] = useState('');
+  const nextSessionBtnRef = useRef(null);
+
+  function openNextSession(student, view = 'form') {
+    setNextSessionDialog({ student, view });
+  }
+
+  /** "Thu, Oct 8 at 6:00 PM" for an upcoming next session, otherwise null. */
+  function nextSessionLabel(st) {
+    if (!st || !isUpcomingDate(st.next_session_date)) return null;
+    const time = st.next_session_time ? ` at ${formatSessionTime(st.next_session_time)}` : '';
+    return `${formatDayDate(st.next_session_date)}${time}`;
+  }
+
+  // After a save or cancel: keep the student list and the open student page in
+  // sync, announce it to screen readers, and return focus to the main button.
+  function handleNextSessionSaved(studentId, next) {
+    setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, ...next } : s)));
+    setDashData((prev) => (
+      prev && prev.student && prev.student.id === studentId
+        ? { ...prev, student: { ...prev.student, ...next } }
+        : prev
+    ));
+    const message = next.next_session_date ? 'Next session saved.' : 'Next session cancelled.';
+    setLiveMessage('');
+    setTimeout(() => setLiveMessage(message), 50);
+    setNextSessionDialog(null);
+    requestAnimationFrame(() => {
+      if (nextSessionBtnRef.current) nextSessionBtnRef.current.focus();
+    });
+  }
   const [loadingDash, setLoadingDash] = useState(false);
   const [error, setError] = useState(null);
 
@@ -223,6 +257,7 @@ export default function Dashboard() {
         .select(`
           id, first_name, last_name, hebrew_name, mitzvah_date, mitzvah_type, tutor_id,
           lessons_per_week, target_completion_date, created_at, status, family_tutored,
+          next_session_date, next_session_time, next_session_end_time,
           tutor:profiles!tutor_id(display_name, email),
           cohort:cohorts!cohort_id(id, name, start_date, completion_buffer_weeks, default_lessons_per_week),
           student_guardians(name, email, is_primary),
@@ -1331,8 +1366,8 @@ export default function Dashboard() {
       );
 
       // 3. Next session with day-of-week date + time + tutor
-      const nextDate = dashData.student?.next_session_date;
-      const nextTime = dashData.student?.next_session_time;
+      const nextDate = isUpcomingDate(dashData.student?.next_session_date) ? dashData.student.next_session_date : null;
+      const nextTime = nextDate ? dashData.student?.next_session_time : null;
       const nextTutor = tutorName(dashData.student?.tutor, null);
       let nextMeta = '';
       if (nextDate) {
@@ -1784,9 +1819,9 @@ export default function Dashboard() {
   // ---- Render helper: next session rail card (student/parent) ----
   function renderNextSessionCard() {
     if (!dashData) return null;
-    const nextDate = dashData.student?.next_session_date;
-    const nextTime = dashData.student?.next_session_time;
-    const nextEndTime = dashData.student?.next_session_end_time;
+    const nextDate = isUpcomingDate(dashData.student?.next_session_date) ? dashData.student.next_session_date : null;
+    const nextTime = nextDate ? dashData.student?.next_session_time : null;
+    const nextEndTime = nextDate ? dashData.student?.next_session_end_time : null;
     const nextTutorName = tutorName(dashData.student?.tutor, null);
 
     return (
@@ -1859,6 +1894,51 @@ export default function Dashboard() {
     );
   }
 
+  // ---- Render helper: next session card with schedule / edit / cancel (admin, tutor) ----
+  function renderStaffNextSessionCard() {
+    if (!dashData || !dashData.student) return null;
+    const st = dashData.student;
+    const hasNext = isUpcomingDate(st.next_session_date);
+    const timeText = st.next_session_time
+      ? (st.next_session_end_time
+          ? formatSessionTimeRange(st.next_session_time, st.next_session_end_time)
+          : formatSessionTime(st.next_session_time))
+      : null;
+
+    return (
+      <div className="card">
+        <h3>Next session</h3>
+        {hasNext ? (
+          <div className="next-session-detail">
+            <span className="next-session-date">{formatDayDate(st.next_session_date)}</span>
+            {timeText && <span className="next-session-time">at {timeText}</span>}
+          </div>
+        ) : (
+          <p className="form-hint" style={{ marginTop: 'var(--space-3)' }}>No session scheduled.</p>
+        )}
+        <div className="next-session-actions">
+          <button
+            ref={nextSessionBtnRef}
+            className="btn btn-outline btn-small"
+            type="button"
+            onClick={() => openNextSession(st, 'form')}
+          >
+            {hasNext ? 'Edit' : 'Schedule'}
+          </button>
+          {hasNext && (
+            <button
+              className="btn btn-danger-outline btn-small"
+              type="button"
+              onClick={() => openNextSession(st, 'cancel')}
+            >
+              Cancel session
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ---- Render helper: log session shortcut (tutor) ----
   function renderLogSessionShortcut() {
     if (!dashData) return null;
@@ -1887,6 +1967,7 @@ export default function Dashboard() {
             {renderInternalNotes()}
           </div>
           <div className="dash-rail">
+            {renderStaffNextSessionCard()}
             {renderSessionsCard()}
             {renderBenchmarkUpcoming()}
             {renderGuardiansCard()}
@@ -1908,6 +1989,7 @@ export default function Dashboard() {
               {renderInternalNotes()}
             </div>
             <div className="dash-rail">
+              {renderStaffNextSessionCard()}
               {renderBenchmarkUpcoming(true)}
               {renderGuardiansCard()}
               <div className="dash-desktop-priority">{renderLogSessionShortcut()}</div>
@@ -2783,6 +2865,19 @@ export default function Dashboard() {
                       </span>
                       {paceStatus && <PaceBadge status={paceStatus} />}
                     </div>
+                    <div className="tut-card-row">
+                      <span>
+                        {nextSessionLabel(s) ? `Next session: ${nextSessionLabel(s)}` : 'No session scheduled'}
+                      </span>
+                      <button
+                        className="btn btn-outline btn-small"
+                        type="button"
+                        onClick={() => openNextSession(s, 'form')}
+                        aria-label={`${nextSessionLabel(s) ? 'Edit' : 'Schedule'} next session for ${s.first_name} ${s.last_name}`}
+                      >
+                        {nextSessionLabel(s) ? 'Edit' : 'Schedule'}
+                      </button>
+                    </div>
                     <div className="tut-card-progress">
                       <div className="tut-card-row">
                         <span>Reading progress</span>
@@ -2860,6 +2955,17 @@ export default function Dashboard() {
         title={celebrationReplay?.title}
         subtitle={celebrationReplay?.subtitle}
       />
+
+      {nextSessionDialog && (
+        <NextSessionModal
+          student={nextSessionDialog.student}
+          initialView={nextSessionDialog.view}
+          onClose={() => setNextSessionDialog(null)}
+          onSaved={handleNextSessionSaved}
+        />
+      )}
+
+      <div className="sr-only" role="status" aria-live="polite">{liveMessage}</div>
     </div>
   );
 }

@@ -41,7 +41,7 @@ function combine(hour12, minute, period) {
   return `${String(hh).padStart(2, '0')}:${minute}`;
 }
 
-export default function TimeSelect({ value, onChange, disabled = false, ariaLabelPrefix = 'Time' }) {
+export default function TimeSelect({ value, onChange, disabled = false, ariaLabelPrefix = 'Time', onPartialChange }) {
   const [parts, setParts] = useState(() => parseValue(value));
 
   // Re-sync from the parent's value only when it genuinely changed from
@@ -56,22 +56,33 @@ export default function TimeSelect({ value, onChange, disabled = false, ariaLabe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
+  // Pushes the combined value up, and (optionally) tells the parent when only
+  // some of the three selects are chosen, so a half-picked time isn't dropped
+  // silently.
+  function emit(next) {
+    onChange(combine(next.hour12, next.minute, next.period));
+    if (onPartialChange) {
+      const filled = [next.hour12, next.minute, next.period].filter(Boolean).length;
+      onPartialChange(filled > 0 && filled < 3);
+    }
+  }
+
   function handleHourChange(e) {
     const next = { ...parts, hour12: e.target.value };
     setParts(next);
-    onChange(combine(next.hour12, next.minute, next.period));
+    emit(next);
   }
 
   function handleMinuteChange(e) {
     const next = { ...parts, minute: e.target.value };
     setParts(next);
-    onChange(combine(next.hour12, next.minute, next.period));
+    emit(next);
   }
 
   function handlePeriodChange(e) {
     const next = { ...parts, period: e.target.value };
     setParts(next);
-    onChange(combine(next.hour12, next.minute, next.period));
+    emit(next);
   }
 
   return (

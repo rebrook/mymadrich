@@ -5276,6 +5276,30 @@ select.input {
   margin-top: var(--space-3);
 }
 
+.next-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* In the Schedule dialog footer, pushes "Cancel session" to the far left,
+   away from Close and Save. */
+.next-session-cancel-link {
+  margin-right: auto;
+}
+
+.field-error-text {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: 0.85rem;
+  color: var(--color-error);
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
 .next-session-date {
   font-family: var(--font-display);
   font-size: 1.5rem;

@@ -34,8 +34,13 @@ export default function Modal({ title, onClose, children, footer }) {
     const modal = modalRef.current;
     if (!modal) return;
 
+    // Prefer an element marked data-autofocus (e.g. the first form field, or
+    // the safe button in a confirmation); otherwise the first focusable.
+    const preferred = modal.querySelector('[data-autofocus]');
     const focusables = modal.querySelectorAll(FOCUSABLE_SELECTOR);
-    if (focusables.length > 0) {
+    if (preferred) {
+      preferred.focus();
+    } else if (focusables.length > 0) {
       focusables[0].focus();
     }
 
