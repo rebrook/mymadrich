@@ -84,6 +84,7 @@ export default function LogSessionPage() {
   const [nextSessionDate, setNextSessionDate] = useState('');
   const [nextSessionTime, setNextSessionTime] = useState('');
   const [nextSessionEndTime, setNextSessionEndTime] = useState('');
+  const [nextSessionWarning, setNextSessionWarning] = useState(null);
   const [minutesWorked, setMinutesWorked] = useState('');
   // Collapsible sections
   const [expanded, setExpanded] = useState({ verses: true, elements: true, homework: true });
@@ -249,9 +250,6 @@ export default function LogSessionPage() {
         setHomeworkNotes(session.homework_notes || '');
         setLessonNotes(session.lesson_notes || '');
         setHomeworkMinutes(session.homework_minutes_per_day ? String(session.homework_minutes_per_day) : '');
-        setNextSessionDate(session.next_session_date || '');
-        setNextSessionTime(session.next_session_time || '');
-        setNextSessionEndTime(session.next_session_end_time || '');
         setSelectedStudentId(session.student_id);
       } catch (err) {
         setError(err.message);
@@ -905,9 +903,6 @@ export default function LogSessionPage() {
           .update({
             session_date: sessionDate,
             minutes_worked: minutesWorked !== '' ? parseInt(minutesWorked, 10) : null,
-            next_session_date: nextSessionDate || null,
-            next_session_time: nextSessionTime || null,
-            next_session_end_time: nextSessionEndTime || null,
             homework_notes: homeworkNotes.trim() || null,
             lesson_notes: lessonNotes.trim() || null,
             homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
@@ -930,9 +925,6 @@ export default function LogSessionPage() {
             tutor_id: tutorId,
             session_date: sessionDate,
             minutes_worked: minutesWorked !== '' ? parseInt(minutesWorked, 10) : null,
-            next_session_date: nextSessionDate || null,
-            next_session_time: nextSessionTime || null,
-            next_session_end_time: nextSessionEndTime || null,
             homework_notes: homeworkNotes.trim() || null,
             lesson_notes: lessonNotes.trim() || null,
             homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
@@ -1002,6 +994,37 @@ export default function LogSessionPage() {
         if (hwErr) throw hwErr;
       }
 
+      // The next session is stored on the student, not on the session. Only
+      // the student's latest session sets it, so a back-dated entry can't
+      // overwrite a newer plan. A failure here never undoes the saved session.
+      let nextWarning = null;
+      if (!isEditMode) {
+        try {
+          const { data: latestRows, error: latestErr } = await supabase
+            .from('sessions')
+            .select('id')
+            .eq('student_id', selectedStudentId)
+            .order('session_date', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (latestErr) throw latestErr;
+
+          if (latestRows && latestRows[0] && latestRows[0].id === activeSessionId) {
+            const { error: nextErr } = await supabase.rpc('schedule_next_session', {
+              p_student_id: selectedStudentId,
+              p_date: nextSessionDate || null,
+              p_start_time: nextSessionTime || null,
+              p_end_time: nextSessionEndTime || null,
+            });
+            if (nextErr) throw nextErr;
+          }
+        } catch (nextErr) {
+          console.error('Next session update failed:', nextErr.message);
+          nextWarning = nextErr.message;
+        }
+      }
+      setNextSessionWarning(nextWarning);
+
       // Clear dirty state before navigation/success
       setIsDirty(false);
 
@@ -1042,6 +1065,7 @@ export default function LogSessionPage() {
     setNextSessionDate('');
     setNextSessionTime('');
     setNextSessionEndTime('');
+    setNextSessionWarning(null);
     setError(null);
     setSuccess(false);
     setOpenRaterId(null);
@@ -1126,6 +1150,11 @@ export default function LogSessionPage() {
             Session for {student?.first_name} {student?.last_name} on{' '}
             {formatSessionDate(sessionDate, { style: 'date' })} has been saved.
           </p>
+          {nextSessionWarning && (
+            <p className="save-feedback-text" role="alert">
+              The next session date wasn&apos;t updated: {nextSessionWarning}
+            </p>
+          )}
           <div className="save-feedback-actions">
             <button className="btn btn-outline" onClick={() => navigate('/dashboard')}>
               View Student Dashboard
@@ -1577,7 +1606,8 @@ export default function LogSessionPage() {
             onMinutesChange={handleMinutesChange}
           />
 
-          {/* ============ Next Session ============ */}
+          {/* ============ Next Session (new sessions only) ============ */}
+          {!isEditMode && (
           <div className="card next-session-v2">
             <div className="section-header">
               <h3>Next Session</h3>
@@ -1625,6 +1655,7 @@ export default function LogSessionPage() {
               </div>
             </div>
           </div>
+          )}
         </>
       )}
 

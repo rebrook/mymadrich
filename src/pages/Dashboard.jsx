@@ -1331,8 +1331,8 @@ export default function Dashboard() {
       );
 
       // 3. Next session with day-of-week date + time + tutor
-      const nextDate = latestSession?.next_session_date;
-      const nextTime = latestSession?.next_session_time;
+      const nextDate = dashData.student?.next_session_date;
+      const nextTime = dashData.student?.next_session_time;
       const nextTutor = tutorName(dashData.student?.tutor, null);
       let nextMeta = '';
       if (nextDate) {
@@ -1784,9 +1784,9 @@ export default function Dashboard() {
   // ---- Render helper: next session rail card (student/parent) ----
   function renderNextSessionCard() {
     if (!dashData) return null;
-    const nextDate = latestSession?.next_session_date;
-    const nextTime = latestSession?.next_session_time;
-    const nextEndTime = latestSession?.next_session_end_time;
+    const nextDate = dashData.student?.next_session_date;
+    const nextTime = dashData.student?.next_session_time;
+    const nextEndTime = dashData.student?.next_session_end_time;
     const nextTutorName = tutorName(dashData.student?.tutor, null);
 
     return (

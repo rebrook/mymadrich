@@ -100,7 +100,7 @@ export default function CohortCalendar() {
         // Sessions: first session date + upcoming sessions
         const { data: sessionRows } = await supabase
           .from('sessions')
-          .select('student_id, session_date, next_session_date, next_session_time, tutor:profiles!tutor_id(display_name)')
+          .select('student_id, session_date, tutor:profiles!tutor_id(display_name)')
           .in('student_id', studentIds)
           .order('session_date', { ascending: true });
 
@@ -161,12 +161,9 @@ export default function CohortCalendar() {
             ? Math.round((masteredVerses / totalVerses) * 100)
             : 0;
 
-          // Upcoming session (latest session's next_session_date)
-          const latestSession = studentSessions.length > 0
-            ? studentSessions[studentSessions.length - 1]
-            : null;
-          const nextSessionDate = latestSession?.next_session_date || null;
-          const nextSessionTime = latestSession?.next_session_time || null;
+          // Upcoming session (stored on the student record)
+          const nextSessionDate = s.next_session_date || null;
+          const nextSessionTime = s.next_session_time || null;
 
           meta[s.id] = {
             totalVerses,

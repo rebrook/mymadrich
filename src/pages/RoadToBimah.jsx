@@ -110,7 +110,6 @@ function buildJourneyNodes({
   tutorDisplayName,
   mitzvahDateFormatted,
   daysToMitzvah,
-  latestSession,
   primaryReading,
   benchmarks,
   dvarTorahStage,
@@ -198,8 +197,8 @@ function buildJourneyNodes({
   }
 
   // 4. Next session (if scheduled)
-  const nextDate = latestSession?.next_session_date;
-  const nextTime = latestSession?.next_session_time;
+  const nextDate = student?.next_session_date;
+  const nextTime = student?.next_session_time;
   if (nextDate) {
     const nextD = new Date(nextDate + 'T00:00:00');
     if (nextD >= today) {
@@ -298,8 +297,8 @@ function buildJourneyNodes({
     // Assign sortDates to future nodes that don't have one
     for (const n of afterToday) {
       if (!n.sortDate) {
-        if (n.type === 'next-session' && latestSession?.next_session_date) {
-          n.sortDate = latestSession.next_session_date;
+        if (n.type === 'next-session' && student?.next_session_date) {
+          n.sortDate = student.next_session_date;
         }
         // projected nodes don't have a precise date, so leave them at end
       }
@@ -544,7 +543,7 @@ export default function RoadToBimah() {
         // All sessions (for milestone date derivation)
         const { data: sessionsData, error: sessErr } = await supabase
           .from('sessions')
-          .select('id, session_date, next_session_date, next_session_time, tutor:profiles!tutor_id(display_name)')
+          .select('id, session_date, tutor:profiles!tutor_id(display_name)')
           .eq('student_id', targetStudentId)
           .order('session_date', { ascending: false });
         if (sessErr) throw sessErr;
@@ -633,8 +632,6 @@ export default function RoadToBimah() {
     ? formatMitzvahDate(student.mitzvah_date)
     : null;
 
-  const latestSession = sessions[0] || null;
-
   // Build the journey nodes
   const journeyNodes = useMemo(() => {
     if (!student) return [];
@@ -651,7 +648,6 @@ export default function RoadToBimah() {
       tutorDisplayName,
       mitzvahDateFormatted,
       daysToMitzvah,
-      latestSession,
       primaryReading,
       benchmarks,
       dvarTorahStage: student.dvar_torah_stage,

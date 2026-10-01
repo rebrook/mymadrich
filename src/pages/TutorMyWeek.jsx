@@ -215,6 +215,7 @@ export default function TutorMyWeek() {
           .select(`
             id, first_name, last_name, hebrew_name, mitzvah_date, mitzvah_type,
             tutor_id, lessons_per_week, target_completion_date, created_at, status,
+            next_session_date, next_session_time, next_session_end_time,
             cohort:cohorts!cohort_id(id, name, start_date, completion_buffer_weeks, default_lessons_per_week),
             student_guardians(name, email, is_primary),
             readings:readings(id, reading_type, portion_name, portion_name_hebrew, aliyah, reference, sort_order)
@@ -237,30 +238,73 @@ export default function TutorMyWeek() {
 
         const studentIds = students.map((s) => s.id);
 
-        // 2. Find sessions with next_session_date in the rolling window
-        //    These are the most recent sessions per student that scheduled
-        //    a next session in this week's range.
-        const { data: sessionsRaw, error: sessErr } = await supabase
-          .from('sessions')
-          .select(`
-            id, student_id, session_date, next_session_date, next_session_time, next_session_end_time,
-            homework_notes, homework_minutes_per_day,
-            session_verse_progress(verse_id, status, quality),
-            homework_items(id, description, completed_at)
-          `)
-          .in('student_id', studentIds)
-          .gte('next_session_date', startDate)
-          .lte('next_session_date', endDate)
-          .order('next_session_date', { ascending: true })
-          .order('next_session_time', { ascending: true, nullsFirst: false });
-        if (sessErr) throw sessErr;
+        // 2. Students whose next session falls in the rolling window.
+        //    The live next session is stored on the student record, not on a
+        //    logged session, so a student with no sessions yet can appear too.
+        const scheduled = students
+          .filter((s) => s.next_session_date
+            && s.next_session_date >= startDate
+            && s.next_session_date <= endDate)
+          .sort((a, b) => {
+            if (a.next_session_date !== b.next_session_date) {
+              return a.next_session_date < b.next_session_date ? -1 : 1;
+            }
+            // Same day: earlier start first, sessions without a time last
+            if (!a.next_session_time && !b.next_session_time) return 0;
+            if (!a.next_session_time) return 1;
+            if (!b.next_session_time) return -1;
+            if (a.next_session_time === b.next_session_time) return 0;
+            return a.next_session_time < b.next_session_time ? -1 : 1;
+          });
 
-        // Group: for each student, keep all scheduled sessions in range
-        // (a student might have multiple upcoming sessions, like Ari in the prototype)
-        const weekSess = (sessionsRaw || []).map((sess) => ({
-          ...sess,
-          student: sMap[sess.student_id],
-        })).filter((s) => s.student);
+        // Each scheduled student's most recent logged session supplies the
+        // homework and notes shown on their card. Two light steps: find the
+        // latest session id per student, then load details for those only.
+        const detailByStudent = {};
+        if (scheduled.length > 0) {
+          const { data: idRows, error: idErr } = await supabase
+            .from('sessions')
+            .select('id, student_id')
+            .in('student_id', scheduled.map((s) => s.id))
+            .order('session_date', { ascending: false })
+            .order('created_at', { ascending: false });
+          if (idErr) throw idErr;
+
+          const latestIdByStudent = {};
+          (idRows || []).forEach((row) => {
+            if (!latestIdByStudent[row.student_id]) latestIdByStudent[row.student_id] = row.id;
+          });
+          const latestIds = Object.values(latestIdByStudent);
+
+          if (latestIds.length > 0) {
+            const { data: detailRows, error: detErr } = await supabase
+              .from('sessions')
+              .select(`
+                id, student_id, session_date,
+                homework_notes, homework_minutes_per_day,
+                session_verse_progress(verse_id, status, quality),
+                homework_items(id, description, completed_at)
+              `)
+              .in('id', latestIds);
+            if (detErr) throw detErr;
+            (detailRows || []).forEach((row) => { detailByStudent[row.student_id] = row; });
+          }
+        }
+
+        // One entry per scheduled student. A student with no logged session
+        // simply has no homework or notes to show.
+        const weekSess = scheduled.map((s) => {
+          const last = detailByStudent[s.id] || null;
+          return {
+            ...(last || {}),
+            id: last ? last.id : `scheduled-${s.id}`,
+            student_id: s.id,
+            next_session_date: s.next_session_date,
+            next_session_time: s.next_session_time,
+            next_session_end_time: s.next_session_end_time,
+            student: s,
+          };
+        });
 
         setWeekSessions(weekSess);
 
