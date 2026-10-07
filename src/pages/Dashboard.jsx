@@ -216,7 +216,7 @@ export default function Dashboard() {
   const [bulkAction, setBulkAction] = useState(null); // null | 'reassign' | 'advance' | 'complete'
   const [bulkConfirmData, setBulkConfirmData] = useState(null); // { label, ids, updates, priorValues }
   const [bulkProcessing, setBulkProcessing] = useState(false);
-  const [bulkToast, setBulkToast] = useState(null); // { message, undoFn, timer }
+  const [bulkToast, setBulkToast] = useState(null); // { message, undoFn, kind: 'success' | 'warning' }
 
   // Tutor list for reassignment dropdown
   const [allTutors, setAllTutors] = useState([]);
@@ -240,9 +240,11 @@ export default function Dashboard() {
     setBulkConfirmData(null);
   }, [adminCohortId, adminLens]);
 
-  // Auto-dismiss undo toast after 6 seconds
+  // Auto-dismiss undo toast after 6 seconds. Warning toasts (partial failure)
+  // stay until dismissed so the admin has time to read which students failed.
   useEffect(() => {
     if (!bulkToast) return;
+    if (bulkToast.kind === 'warning') return;
     const timer = setTimeout(() => setBulkToast(null), 6000);
     return () => clearTimeout(timer);
   }, [bulkToast]);
@@ -1025,13 +1027,15 @@ export default function Dashboard() {
     if (!bulkConfirmData) return;
     setBulkProcessing(true);
     try {
+      // Declared outside the reassign block so the toast/undo code below can read it.
+      let succeeded = [];
+      let partialMessage = null;
       if (bulkConfirmData.type === 'reassign') {
         // M:N reassign: for each student, atomically delete all student_tutors
         // rows and insert one row for the new tutor via RPC. The RPC wraps
         // both operations in a single transaction so a student can never be
         // left with zero tutors if the insert fails after the delete.
         const { ids, newTutorId } = bulkConfirmData;
-        const succeeded = [];
         const failed = [];
 
         for (const studentId of ids) {
@@ -1055,9 +1059,13 @@ export default function Dashboard() {
         }
 
         if (failed.length > 0) {
-          // Partial failure: report which students were not changed
-          const failedNames = failed.map((f) => f.name).join(', ');
-          setError(`Reassigned ${succeeded.length} of ${ids.length} students. Failed: ${failedNames}. These students were not changed.`);
+          // Partial failure: report which students were not changed in the
+          // toast (one message, with Undo kept for the students that changed).
+          // Show the first three names, then "and N more".
+          const shownNames = failed.slice(0, 3).map((f) => f.name).join(', ');
+          const moreCount = failed.length - 3;
+          const failedNames = moreCount > 0 ? `${shownNames}, and ${moreCount} more` : shownNames;
+          partialMessage = `Reassigned ${succeeded.length} of ${ids.length} students. Not changed: ${failedNames}.`;
         }
 
         // The mirror trigger keeps students.tutor_id in sync automatically.
@@ -1075,7 +1083,8 @@ export default function Dashboard() {
       const undoCount = reassignSucceeded ? reassignSucceeded.length : undoData.ids.length;
 
       setBulkToast({
-        message: `Done. ${undoCount} student${undoCount === 1 ? '' : 's'} updated.`,
+        message: partialMessage || `Done. ${undoCount} student${undoCount === 1 ? '' : 's'} updated.`,
+        kind: partialMessage ? 'warning' : 'success',
         undoFn: async () => {
           if (undoData.type === 'reassign') {
             // Restore only the students that were actually reassigned
@@ -2639,7 +2648,10 @@ export default function Dashboard() {
 
         {/* Undo toast */}
         {bulkToast && (
-          <div className="bulk-toast">
+          <div
+            className={bulkToast.kind === 'warning' ? 'bulk-toast bulk-toast-warning' : 'bulk-toast'}
+            role={bulkToast.kind === 'warning' ? 'alert' : 'status'}
+          >
             <span>{bulkToast.message}</span>
             {bulkToast.undoFn && (
               <button

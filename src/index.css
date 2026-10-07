@@ -5940,6 +5940,38 @@ select.input {
   outline-offset: 2px;
 }
 
+/* Warning variant: partial bulk failure. Light surface with warning tokens
+   (text on bg is about 6.6:1); Undo/Dismiss recolored for a light background. */
+.bulk-toast-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.bulk-toast-warning .bulk-toast-undo {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.bulk-toast-warning .bulk-toast-undo:hover {
+  background: rgba(133, 77, 14, 0.1);
+  border-color: var(--color-warning);
+}
+
+.bulk-toast-warning .bulk-toast-dismiss {
+  color: var(--color-warning);
+}
+
+.bulk-toast-warning .bulk-toast-dismiss:hover {
+  color: var(--color-text);
+}
+
+.bulk-toast-warning .bulk-toast-undo:focus-visible,
+.bulk-toast-warning .bulk-toast-dismiss:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 /* Mobile batch bar: sit above bottom nav */
 @media (max-width: 768px) {
   .bulk-batch-bar {
