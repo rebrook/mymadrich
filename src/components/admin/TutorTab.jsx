@@ -16,6 +16,8 @@ import Modal from '../ui/Modal';
  *   Create  — "Add Tutor" (single) or "Add Multiple" (multi-row form).
  *             Inserts pending_invitations + auto-opens mailto.
  *   Read    — merged list of claimed profiles + pending invitations.
+ *   Resend  — re-opens the pre-filled invitation email for a pending tutor
+ *             (no database change; the admin sends it from their mail app).
  *   Update  — edit name/phone (claimed) or name/email/phone (pre-claim).
  *   Delete  — deactivate (soft-delete via is_active); blocked while assigned.
  *
@@ -54,6 +56,9 @@ export default function TutorTab() {
 
   // Cancel invitation confirm
   const [cancelTarget, setCancelTarget] = useState(null);
+
+  // Confirmation note after reopening an invitation email (read aloud to screen readers)
+  const [resendNotice, setResendNotice] = useState('');
 
   useEffect(() => {
     fetchTutors();
@@ -359,6 +364,24 @@ export default function TutorTab() {
     }
   }
 
+  // ---- Resend Invitation ----
+
+  // Invitations are emails the admin sends from their own mail app, so this
+  // reopens the same pre-filled message. The app cannot tell whether it was
+  // actually sent, so the note says "opened", never "sent".
+  function handleResendInvitation(tutor) {
+    openInviteEmail({
+      recipientEmail: tutor.email,
+      recipientName: tutor.display_name || '',
+      role: 'tutor',
+    });
+    const who = tutor.display_name || tutor.email;
+    setResendNotice('');
+    setTimeout(() => {
+      setResendNotice(`Invitation email opened for ${who}. Send it from your mail app.`);
+    }, 50);
+  }
+
   // ---- Display helpers ----
 
   function getStatusBadge(tutor) {
@@ -377,6 +400,14 @@ export default function TutorTab() {
         <div className="action-buttons">
           <button className="btn btn-small btn-outline" onClick={() => openEditModal(tutor)}>
             Edit
+          </button>
+          <button
+            className="btn btn-small btn-outline"
+            type="button"
+            onClick={() => handleResendInvitation(tutor)}
+            aria-label={`Resend invitation to ${tutor.display_name || tutor.email}`}
+          >
+            Resend
           </button>
           <button
             className="btn btn-small btn-danger-outline"
@@ -461,6 +492,10 @@ export default function TutorTab() {
 
       {loading && <p className="form-hint">Loading tutors...</p>}
       {error && <div className="alert alert-error">{error}</div>}
+
+      <div role="status" aria-live="polite">
+        {resendNotice && <div className="alert alert-success">{resendNotice}</div>}
+      </div>
 
       {!loading && displayedTutors.length === 0 && (
         <div className="empty-state">

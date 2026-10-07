@@ -283,13 +283,15 @@ const APP_URL = import.meta.env.VITE_APP_URL
  */
 export function buildInviteMailto({ recipientEmail, recipientName, role }) {
   const recipientFirst = firstName(recipientName);
+  // A pending invitation can exist without a name; avoid opening with "Hi ,"
+  const greeting = recipientFirst ? `Hi ${recipientFirst},` : 'Hello,';
   const roleLabel = role === 'tutor' ? 'tutor'
     : role === 'parent' ? 'family member'
     : 'student';
 
   const subject = `You\u2019ve been invited to MyMadrich`;
   const body = [
-    `Hi ${recipientFirst},`,
+    greeting,
     '',
     `You\u2019ve been invited to MyMadrich, the B\u2019nai Mitzvah tutoring progress tracker for Chizuk Amuno Congregation, as a ${roleLabel}.`,
     '',
