@@ -6225,7 +6225,7 @@ select.input {
 }
 
 .sfh-save-wrap {
-  position: relative;      /* anchor the hint */
+  position: relative;      /* anchor the save message */
   display: flex;
   align-items: center;     /* wrap height == button height */
 }
@@ -6235,13 +6235,26 @@ select.input {
   min-height: 40px;
 }
 
-.sfh-save-reason {
+/* Save feedback (validation or failed save). Solid background so it stays
+   readable over the page; error text on error bg is about 5.0:1. */
+.sfh-save-message {
   position: absolute;      /* out of flow, so the row stays centered */
-  top: calc(100% + 2px);
+  top: calc(100% + var(--space-6));  /* hangs just below the sticky header */
   right: 0;
-  white-space: nowrap;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+  z-index: 1;
+  width: max-content;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-error-bg);
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere; /* long unbroken tokens (constraint names, IDs) must wrap */
 }
 
 /* ---- Rating Pills (v2 6.11) ---- */
@@ -6794,14 +6807,21 @@ select.input {
     min-width: 100px;
   }
 
-  /* Keep the mobile save bar exactly as before */
+  /* Keep the mobile save bar height unchanged: the save message floats just
+     above the fixed bar (which already sits above the bottom nav) and anchors
+     to the bar, not the button wrapper. */
   .sfh-mobile-bar .sfh-save-wrap {
     flex-direction: column;
     align-items: flex-end;
-  }
-  .sfh-mobile-bar .sfh-save-reason {
     position: static;
-    margin-top: 2px;
+  }
+  .sfh-mobile-bar .sfh-save-message {
+    top: auto;
+    bottom: calc(100% + var(--space-2));
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+    max-width: none;
   }
 
   /* Add padding to page bottom so content doesn't hide behind fixed bar */

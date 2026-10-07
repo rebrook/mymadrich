@@ -92,6 +92,11 @@ export default function LogSessionPage() {
   // Save state
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Save feedback lives next to the Save button (see StickyFormHeader), not in
+  // the page banner, so it is visible wherever the user is scrolled.
+  const [saveMessage, setSaveMessage] = useState(null);
+  const [focusRequest, setFocusRequest] = useState(null); // { target: 'student' | 'date' | 'save', nonce }
+  const [progressFocus, setProgressFocus] = useState(null); // { id, nonce }
   const [success, setSuccess] = useState(false);
 
   // Edit mode loading
@@ -148,6 +153,33 @@ export default function LogSessionPage() {
 
   function hasAnyProgress() {
     return verseCount > 0 || elementCount > 0;
+  }
+
+  // Clear the save message when the user changes something it could refer to
+  useEffect(() => {
+    setSaveMessage(null);
+  }, [selectedStudentId, sessionDate, verseCount, elementCount]);
+
+  // Move focus to a rating section toggle once any needed expansion has rendered
+  useEffect(() => {
+    if (!progressFocus) return;
+    document.getElementById(progressFocus.id)?.focus();
+  }, [progressFocus]);
+
+  function requestHeaderFocus(target) {
+    setFocusRequest((prev) => ({ target, nonce: (prev?.nonce || 0) + 1 }));
+  }
+
+  // Nothing rated: send the user to the first section where they can rate.
+  // Falls back to Service Elements when the student has no readings.
+  function focusFirstRatingSection() {
+    const hasReadings = (studentDetail?.readings?.length || 0) > 0;
+    const key = hasReadings ? 'verses' : 'elements';
+    setExpanded((prev) => ({ ...prev, [key]: true }));
+    setProgressFocus((prev) => ({
+      id: hasReadings ? 'verse-progress-toggle' : 'service-elements-toggle',
+      nonce: (prev?.nonce || 0) + 1,
+    }));
   }
 
   /* ================================================================ */
@@ -875,20 +907,25 @@ export default function LogSessionPage() {
 
   async function handleSave() {
     if (!selectedStudentId) {
-      setError('Please select a student.');
+      setSaveMessage('Please select a student.');
+      requestHeaderFocus('student');
       return;
     }
     if (!sessionDate) {
-      setError('Please set a session date.');
+      setSaveMessage('Please set a session date.');
+      requestHeaderFocus('date');
       return;
     }
     if (!hasAnyProgress()) {
-      setError('Please rate at least one verse or service element.');
+      setSaveMessage('Please rate at least one verse or service element.');
+      focusFirstRatingSection();
       return;
     }
 
+    let saveFailed = false;
     setSaving(true);
     setError(null);
+    setSaveMessage(null);
 
     try {
       // sessions.tutor_id = who actually logged this session, unconditionally.
@@ -1041,12 +1078,14 @@ export default function LogSessionPage() {
         setSuccess(true);
       }
     } catch (err) {
-      setError(err.message);
-      if (liveRegionRef.current) {
-        liveRegionRef.current.textContent = `Error saving session: ${err.message}`;
-      }
+      // Shown next to the Save button (role="alert" announces it), so no
+      // separate live-region announcement for save errors.
+      setSaveMessage(err.message);
+      saveFailed = true;
     } finally {
       setSaving(false);
+      // Save was disabled while saving, which drops focus; put it back.
+      if (saveFailed) requestHeaderFocus('save');
     }
   }
 
@@ -1189,12 +1228,6 @@ export default function LogSessionPage() {
   /*  Render: Main form                                                */
   /* ================================================================ */
 
-  const disabledReason = !selectedStudentId
-    ? 'Select a student'
-    : !hasAnyProgress()
-    ? 'Rate at least one item'
-    : '';
-
   return (
     <div className="page log-session-page">
       {/* Unsaved-changes guard */}
@@ -1223,8 +1256,8 @@ export default function LogSessionPage() {
         nextSessionDate={nextSessionDate}
         onSave={handleSave}
         saving={saving}
-        disabled={!selectedStudentId || !hasAnyProgress()}
-        disabledReason={disabledReason}
+        saveMessage={saveMessage}
+        focusRequest={focusRequest}
         saveLabel={isEditMode ? 'Update Session' : 'Save Session'}
       />
 
@@ -1344,6 +1377,7 @@ export default function LogSessionPage() {
           {/* ============ Verse Progress ============ */}
           <div className="card">
             <div
+              id="verse-progress-toggle"
               className="section-toggle"
               onClick={() => toggleSection('verses')}
               role="button"
@@ -1443,6 +1477,7 @@ export default function LogSessionPage() {
           {/* ============ Service Elements ============ */}
           <div className="card">
             <div
+              id="service-elements-toggle"
               className="section-toggle"
               onClick={() => toggleSection('elements')}
               role="button"

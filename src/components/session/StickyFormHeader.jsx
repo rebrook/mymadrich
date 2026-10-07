@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import StudentSwitcher from '../ui/StudentSwitcher';
 import { formatDateCompact, formatDateShort } from '../../utils/datetime';
 
@@ -36,12 +36,34 @@ export default function StickyFormHeader({
   // Save
   onSave,
   saving,
-  disabled,
-  disabledReason,
+  saveMessage,
+  focusRequest,
   saveLabel,
 }) {
   const [editingDate, setEditingDate] = useState(false);
   const dateInputRef = useRef(null);
+  const desktopRef = useRef(null);
+  const mobileInfoRef = useRef(null);
+  const mobileBarRef = useRef(null);
+
+  // ---- Focus requests from the page (validation / save failure) ----
+  // Both layouts are in the DOM and CSS hides one, so focus the visible copy.
+  useEffect(() => {
+    if (!focusRequest) return;
+    const isVisible = (el) => Boolean(el) && el.getClientRects().length > 0;
+    const { target } = focusRequest;
+    const candidates = target === 'save'
+      ? [desktopRef.current, mobileBarRef.current]
+      : [desktopRef.current, mobileInfoRef.current];
+    const container = candidates.find(isVisible);
+    if (!container) return;
+    const selector = target === 'student'
+      ? '.student-switcher-trigger'
+      : target === 'date'
+      ? '.sfh-date-input, .sfh-date-trigger'
+      : '.sfh-save-btn';
+    container.querySelector(selector)?.focus();
+  }, [focusRequest]);
 
   // ---- Tally text ----
   const ratedCount = verseCount + elementCount;
@@ -142,7 +164,8 @@ export default function StickyFormHeader({
   }
 
   // ---- Tally + Save rendering ----
-  function renderTallySave(className) {
+  function renderTallySave(className, layout) {
+    const messageId = `save-msg-${layout}`;
     return (
       <div className={`sfh-actions ${className || ''}`}>
         <span className="sfh-tally">{tallyText}</span>
@@ -150,13 +173,16 @@ export default function StickyFormHeader({
           <button
             className="btn btn-primary sfh-save-btn"
             onClick={onSave}
-            disabled={saving || disabled}
+            disabled={saving}
+            aria-describedby={saveMessage ? messageId : undefined}
             type="button"
           >
             {saving ? 'Saving...' : saveLabel}
           </button>
-          {disabled && !saving && disabledReason && (
-            <span className="sfh-save-reason">{disabledReason}</span>
+          {saveMessage && (
+            <span id={messageId} className="sfh-save-message" role="alert">
+              {saveMessage}
+            </span>
           )}
         </div>
       </div>
@@ -166,21 +192,21 @@ export default function StickyFormHeader({
   return (
     <>
       {/* Desktop: single sticky row */}
-      <div className="sticky-form-header sfh-desktop">
+      <div className="sticky-form-header sfh-desktop" ref={desktopRef}>
         {renderStudentArea()}
         {renderDateArea()}
-        {renderTallySave()}
+        {renderTallySave('', 'desktop')}
       </div>
 
       {/* Mobile: student + date in flow */}
-      <div className="sfh-mobile-info card">
+      <div className="sfh-mobile-info card" ref={mobileInfoRef}>
         {renderStudentArea()}
         {renderDateArea()}
       </div>
 
       {/* Mobile: tally + save fixed bar above bottom nav */}
-      <div className="sfh-mobile-bar">
-        {renderTallySave()}
+      <div className="sfh-mobile-bar" ref={mobileBarRef}>
+        {renderTallySave('', 'mobile')}
       </div>
     </>
   );
