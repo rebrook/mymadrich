@@ -49,6 +49,18 @@ const STATUS_OPTIONS = [
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
+/** v4 UUID. randomUUID needs a secure context (HTTPS); fall back for plain HTTP. */
+function generateUuid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 export default function LogSessionPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
@@ -57,6 +69,12 @@ export default function LogSessionPage() {
 
   const isEditMode = Boolean(sessionId);
   const editDataLoaded = useRef(false);
+  // New sessions: one id per form, reused on every save attempt so a retry after
+  // a lost response updates the same session instead of creating a duplicate.
+  const draftSessionIdRef = useRef(null);
+  // Edits: the updated_at the session was loaded with, exactly as the database
+  // returned it (a string, never a Date, so microseconds are preserved).
+  const loadedUpdatedAtRef = useRef(null);
   usePageTitle(isEditMode ? 'Edit Session' : 'Log Session');
 
   /* ---- State ---- */
@@ -248,6 +266,7 @@ export default function LogSessionPage() {
           .eq('id', sessionId)
           .single();
         if (sessErr) throw sessErr;
+        loadedUpdatedAtRef.current = session.updated_at;
 
         const { data: existingVP, error: vpErr } = await supabase
           .from('session_verse_progress')
@@ -928,79 +947,30 @@ export default function LogSessionPage() {
     setSaveMessage(null);
 
     try {
-      // sessions.tutor_id = who actually logged this session, unconditionally.
-      // This is separate from tutor assignment (student_tutors) and drives
-      // hours attribution in the S25 export. Never derived from assignment.
-      const tutorId = user.id;
-      let activeSessionId;
+      // sessions.tutor_id = who actually logged this session. save_session sets
+      // it on the server from auth.uid(), never from this payload and never
+      // derived from tutor assignment. It drives hours attribution in the S25
+      // export.
 
-      if (isEditMode) {
-        const { error: sessErr } = await supabase
-          .from('sessions')
-          .update({
-            session_date: sessionDate,
-            minutes_worked: minutesWorked !== '' ? parseInt(minutesWorked, 10) : null,
-            homework_notes: homeworkNotes.trim() || null,
-            lesson_notes: lessonNotes.trim() || null,
-            homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
-          })
-          .eq('id', sessionId);
-        if (sessErr) throw sessErr;
-        activeSessionId = sessionId;
-
-        const { error: delVP } = await supabase.from('session_verse_progress').delete().eq('session_id', sessionId);
-        if (delVP) throw delVP;
-        const { error: delEP } = await supabase.from('session_element_progress').delete().eq('session_id', sessionId);
-        if (delEP) throw delEP;
-        const { error: delHW } = await supabase.from('homework_items').delete().eq('session_id', sessionId);
-        if (delHW) throw delHW;
-      } else {
-        const { data: session, error: sessErr } = await supabase
-          .from('sessions')
-          .insert({
-            student_id: selectedStudentId,
-            tutor_id: tutorId,
-            session_date: sessionDate,
-            minutes_worked: minutesWorked !== '' ? parseInt(minutesWorked, 10) : null,
-            homework_notes: homeworkNotes.trim() || null,
-            lesson_notes: lessonNotes.trim() || null,
-            homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
-          })
-          .select()
-          .single();
-        if (sessErr) throw sessErr;
-        activeSessionId = session.id;
-      }
-
-      // Insert verse progress (rated verses only)
+      // Rated verses only
       const verseRows = Object.entries(verseProgress)
         .filter(([, v]) => v.rated && v.quality)
         .map(([verseId, v]) => ({
-          session_id: activeSessionId,
           verse_id: verseId,
           status: v.status,
           quality: v.quality,
         }));
-      if (verseRows.length > 0) {
-        const { error: vpErr } = await supabase.from('session_verse_progress').insert(verseRows);
-        if (vpErr) throw vpErr;
-      }
 
-      // Insert element progress (rated elements only)
+      // Rated elements only
       const elementRows = Object.entries(elementProgress)
         .filter(([, e]) => e.rated && e.quality)
         .map(([elementId, e]) => ({
-          session_id: activeSessionId,
           element_id: elementId,
           quality: e.quality,
           notes: e.notes.trim() || null,
         }));
-      if (elementRows.length > 0) {
-        const { error: epErr } = await supabase.from('session_element_progress').insert(elementRows);
-        if (epErr) throw epErr;
-      }
 
-      // Insert homework items
+      // Homework items
       const hwRows = [];
       Object.entries(homeworkSelections).forEach(([key, selected]) => {
         if (!selected) return;
@@ -1009,7 +979,6 @@ export default function LogSessionPage() {
           const reading = studentDetail.readings.find((r) => r.id === readingId);
           if (reading) {
             hwRows.push({
-              session_id: activeSessionId,
               item_type: reading.reading_type === 'torah' ? 'torah_reading' : 'haftarah_reading',
               description: `Practice ${reading.portion_name}${reading.aliyah ? ' ' + reading.aliyah : ''} (${reading.reference})`,
             });
@@ -1019,17 +988,40 @@ export default function LogSessionPage() {
           const element = studentDetail.elements.find((el) => el.id === elementId);
           if (element) {
             hwRows.push({
-              session_id: activeSessionId,
               item_type: element.category,
               description: `Practice ${element.label}`,
             });
           }
         }
       });
-      if (hwRows.length > 0) {
-        const { error: hwErr } = await supabase.from('homework_items').insert(hwRows);
-        if (hwErr) throw hwErr;
+
+      // One atomic request: the session and its verse, element and homework
+      // rows commit or roll back together. The session id is created once per
+      // form, so retrying after a lost response cannot create a duplicate.
+      // Edits send the updated_at they loaded with; the server refuses the save
+      // if the session changed in the meantime.
+      if (!isEditMode && !draftSessionIdRef.current) {
+        draftSessionIdRef.current = generateUuid();
       }
+      const { data: savedSessionId, error: saveErr } = await supabase.rpc('save_session', {
+        p_session_id: isEditMode ? sessionId : draftSessionIdRef.current,
+        p_is_edit: isEditMode,
+        p_expected_updated_at: isEditMode ? loadedUpdatedAtRef.current : null,
+        p_session: {
+          student_id: selectedStudentId,
+          session_date: sessionDate,
+          minutes_worked: minutesWorked !== '' ? parseInt(minutesWorked, 10) : null,
+          homework_notes: homeworkNotes.trim() || null,
+          lesson_notes: lessonNotes.trim() || null,
+          homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
+        },
+        p_verses: verseRows,
+        p_elements: elementRows,
+        p_homework: hwRows,
+      });
+      if (saveErr) throw saveErr;
+      if (!savedSessionId) throw new Error('The session could not be saved. Please try again.');
+      const activeSessionId = savedSessionId;
 
       // The next session is stored on the student, not on the session. Only
       // the student's latest session sets it, so a back-dated entry can't
@@ -1091,6 +1083,7 @@ export default function LogSessionPage() {
 
   // ---- Reset for another session ----
   function handleLogAnother() {
+    draftSessionIdRef.current = null; // next session gets a fresh id
     setSelectedStudentId('');
     setSessionDate(today);
     setStudentDetail(null);
