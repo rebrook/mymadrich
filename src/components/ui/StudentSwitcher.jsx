@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useId } from 'react';
+import { useState, useRef, useEffect, useCallback, useId, forwardRef, useImperativeHandle } from 'react';
 
 /**
  * Student Switcher (v2 Section 6.2 + Session 14 cohort grouping).
@@ -14,8 +14,11 @@ import { useState, useRef, useEffect, useCallback, useId } from 'react';
  *   onCohortMismatch   - callback(student) when an out-of-cohort student is picked;
  *                         caller is responsible for showing the confirm modal.
  *                         If not provided, selection proceeds without guard.
+ *
+ * Ref: exposes focus(), which moves focus to the trigger button. A parent can
+ * use it (e.g. to point at a validation message) without knowing this markup.
  */
-export default function StudentSwitcher({
+const StudentSwitcher = forwardRef(function StudentSwitcher({
   students = [],
   selectedStudentId = null,
   onSelect,
@@ -23,7 +26,7 @@ export default function StudentSwitcher({
   activeCohortId = null,
   activeCohortLabel = null,
   onCohortMismatch = null,
-}) {
+}, ref) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -35,6 +38,10 @@ export default function StudentSwitcher({
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const triggerRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => triggerRef.current?.focus(),
+  }), []);
 
   // ---- Derived data ----
 
@@ -363,7 +370,9 @@ export default function StudentSwitcher({
       )}
     </div>
   );
-}
+});
+
+export default StudentSwitcher;
 
 // ---- Icons ----
 

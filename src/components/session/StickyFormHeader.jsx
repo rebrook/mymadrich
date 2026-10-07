@@ -45,6 +45,8 @@ export default function StickyFormHeader({
   const desktopRef = useRef(null);
   const mobileInfoRef = useRef(null);
   const mobileBarRef = useRef(null);
+  const desktopSwitcherRef = useRef(null);
+  const mobileSwitcherRef = useRef(null);
 
   // ---- Focus requests from the page (validation / save failure) ----
   // Both layouts are in the DOM and CSS hides one, so focus the visible copy.
@@ -52,14 +54,20 @@ export default function StickyFormHeader({
     if (!focusRequest) return;
     const isVisible = (el) => Boolean(el) && el.getClientRects().length > 0;
     const { target } = focusRequest;
+
+    if (target === 'student') {
+      // Each layout renders its own switcher; focus the one that is showing.
+      const switcher = isVisible(desktopRef.current) ? desktopSwitcherRef : mobileSwitcherRef;
+      switcher.current?.focus();
+      return;
+    }
+
     const candidates = target === 'save'
       ? [desktopRef.current, mobileBarRef.current]
       : [desktopRef.current, mobileInfoRef.current];
     const container = candidates.find(isVisible);
     if (!container) return;
-    const selector = target === 'student'
-      ? '.student-switcher-trigger'
-      : target === 'date'
+    const selector = target === 'date'
       ? '.sfh-date-input, .sfh-date-trigger'
       : '.sfh-save-btn';
     container.querySelector(selector)?.focus();
@@ -104,7 +112,7 @@ export default function StickyFormHeader({
   }
 
   // ---- Student area rendering ----
-  function renderStudentArea(className) {
+  function renderStudentArea(className, switcherRef) {
     if (isEditMode) {
       return (
         <div className={`sfh-student ${className || ''}`}>
@@ -120,6 +128,7 @@ export default function StickyFormHeader({
           <span className="sfh-student-name sfh-student-loading">Loading students...</span>
         ) : (
           <StudentSwitcher
+            ref={switcherRef}
             students={students}
             selectedStudentId={selectedStudentId}
             onSelect={onSelectStudent}
@@ -193,14 +202,14 @@ export default function StickyFormHeader({
     <>
       {/* Desktop: single sticky row */}
       <div className="sticky-form-header sfh-desktop" ref={desktopRef}>
-        {renderStudentArea()}
+        {renderStudentArea('', desktopSwitcherRef)}
         {renderDateArea()}
         {renderTallySave('', 'desktop')}
       </div>
 
       {/* Mobile: student + date in flow */}
       <div className="sfh-mobile-info card" ref={mobileInfoRef}>
-        {renderStudentArea()}
+        {renderStudentArea('', mobileSwitcherRef)}
         {renderDateArea()}
       </div>
 

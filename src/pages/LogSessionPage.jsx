@@ -176,7 +176,7 @@ export default function LogSessionPage() {
   // Clear the save message when the user changes something it could refer to
   useEffect(() => {
     setSaveMessage(null);
-  }, [selectedStudentId, sessionDate, verseCount, elementCount]);
+  }, [selectedStudentId, sessionDate, verseCount, elementCount, loadingDetail]);
 
   // Move focus to a rating section toggle once any needed expansion has rendered
   useEffect(() => {
@@ -325,6 +325,13 @@ export default function LogSessionPage() {
     async function loadDetail() {
       setLoadingDetail(true);
       setError(null);
+      // Drop the previous student's detail and ratings right away. Until this
+      // student's data arrives (or if the load fails), nothing from the last
+      // student may remain on screen or be savable under this one.
+      setStudentDetail(null);
+      setVerseProgress({});
+      setElementProgress({});
+      setHomeworkSelections({});
       try {
         const { data: readings, error: rErr } = await supabase
           .from('readings')
@@ -933,6 +940,16 @@ export default function LogSessionPage() {
     if (!sessionDate) {
       setSaveMessage('Please set a session date.');
       requestHeaderFocus('date');
+      return;
+    }
+    if (loadingDetail || !studentDetail) {
+      // This student's readings and elements are still loading, or the load
+      // failed. There is nothing valid to save yet.
+      setSaveMessage(
+        loadingDetail
+          ? 'Still loading this student. Try again in a moment.'
+          : 'This student could not be loaded. Reload the page and try again.'
+      );
       return;
     }
     if (!hasAnyProgress()) {

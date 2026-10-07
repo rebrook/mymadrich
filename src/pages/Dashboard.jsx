@@ -238,6 +238,9 @@ export default function Dashboard() {
     setBulkSelectedIds(new Set());
     setBulkAction(null);
     setBulkConfirmData(null);
+    // A partial-failure warning names students from the view being left, and it
+    // never auto-dismisses, so drop it too. Success toasts expire on their own.
+    setBulkToast((prev) => (prev && prev.kind === 'warning' ? null : prev));
   }, [adminCohortId, adminLens]);
 
   // Auto-dismiss undo toast after 6 seconds. Warning toasts (partial failure)
