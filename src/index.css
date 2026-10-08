@@ -6102,8 +6102,9 @@ select.input {
   top: 0;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;           /* tally + Save drop to a second row when they do not fit */
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-4);
   padding: 20px 24px;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -6168,6 +6169,25 @@ select.input {
   max-width: 280px;
 }
 
+/* Desktop header wraps instead of overflowing. The student area keeps its
+   natural size (so the date stays beside the name) with a floor equal to the
+   switcher's minimum, so the switcher can never spill over the date. The date
+   never shrinks. Tally + Save sit right-aligned and drop to a second row only
+   when they genuinely do not fit; no breakpoint to maintain.
+   Scoped to .sticky-form-header: the mobile info card is a COLUMN flex box. */
+.sticky-form-header .sfh-student {
+  min-width: 180px;
+}
+
+.sticky-form-header .sfh-date {
+  flex: 0 0 auto;
+}
+
+.sticky-form-header .sfh-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 /* Date area */
 .sfh-date {
   display: flex;
@@ -6187,6 +6207,7 @@ select.input {
   font-size: var(--text-sm);
   color: var(--color-text);
   cursor: pointer;
+  white-space: nowrap;
   transition: border-color 0.15s, background-color 0.15s;
 }
 
@@ -6805,12 +6826,24 @@ select.input {
 
   .sfh-mobile-bar .sfh-save-btn {
     min-width: 100px;
+    min-height: 44px;        /* touch target */
+  }
+
+  /* Save never shrinks; the tally gives way instead: one line, ellipsis. The
+     text reads verses, homework, next session, so the next-session date is the
+     first thing cut. The full text stays in the DOM and in the aria-label. */
+  .sfh-mobile-bar .sfh-tally {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Keep the mobile save bar height unchanged: the save message floats just
      above the fixed bar (which already sits above the bottom nav) and anchors
      to the bar, not the button wrapper. */
   .sfh-mobile-bar .sfh-save-wrap {
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-end;
     position: static;
@@ -6841,6 +6874,14 @@ select.input {
     min-width: 0;
     max-width: 100%;
     width: 100%;
+  }
+}
+
+/* Touch devices (any width, e.g. a tablet in landscape): 44px date button.
+   A desktop with a mouse keeps the compact header. */
+@media (pointer: coarse) {
+  .sfh-date-trigger {
+    min-height: 44px;
   }
 }
 

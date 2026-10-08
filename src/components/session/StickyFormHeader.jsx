@@ -177,7 +177,7 @@ export default function StickyFormHeader({
     const messageId = `save-msg-${layout}`;
     return (
       <div className={`sfh-actions ${className || ''}`}>
-        <span className="sfh-tally">{tallyText}</span>
+        <span className="sfh-tally" aria-label={tallyText}>{tallyText}</span>
         <div className="sfh-save-wrap">
           <button
             className="btn btn-primary sfh-save-btn"
