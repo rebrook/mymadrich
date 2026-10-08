@@ -152,6 +152,8 @@ export default function LogSessionPage() {
 
   // Cohort mismatch confirm modal
   const [mismatchStudent, setMismatchStudent] = useState(null);
+  // Student id waiting on the "discard ratings and switch?" confirmation
+  const [switchRequest, setSwitchRequest] = useState(null);
 
   // aria-live region
   const liveRegionRef = useRef(null);
@@ -840,7 +842,25 @@ export default function LogSessionPage() {
     setIsDirty(true);
   }
 
-  function handleStudentSelect(id) {
+  /** Ratings or homework choices that a student switch would throw away */
+  function hasWorkToDiscard() {
+    return hasAnyProgress() || Object.values(homeworkSelections).some(Boolean);
+  }
+
+  function studentDisplayName(id) {
+    const s = students.find((st) => st.id === id);
+    return s ? `${s.first_name} ${s.last_name}` : 'this student';
+  }
+
+  function studentFirstName(id) {
+    const s = students.find((st) => st.id === id);
+    return s ? s.first_name : 'this student';
+  }
+
+  /** Performs the switch. Picking a student is not an edit, so it does not
+   *  mark the form dirty; the handlers that change form content do that. The
+   *  load effect on selectedStudentId clears the previous student's data. */
+  function applyStudentSelect(id) {
     setSelectedStudentId(id);
     // Reset rater and mark-remaining state
     setOpenRaterId(null);
@@ -848,7 +868,29 @@ export default function LogSessionPage() {
     // Reset verse status panel
     setVerseStatusData(null);
     setVerseStatusExpanded(false);
-    if (id) setIsDirty(true);
+  }
+
+  function handleStudentSelect(id) {
+    // Switching away from a student whose ratings would be lost: ask first.
+    if (id && selectedStudentId && id !== selectedStudentId && hasWorkToDiscard()) {
+      setSwitchRequest(id);
+      return;
+    }
+    applyStudentSelect(id);
+  }
+
+  /** Confirm: discard and switch (the load effect clears the old data) */
+  function confirmSwitch() {
+    if (switchRequest) {
+      applyStudentSelect(switchRequest);
+    }
+    setSwitchRequest(null);
+  }
+
+  /** Cancel: stay on the current student and return focus to the picker */
+  function cancelSwitch() {
+    setSwitchRequest(null);
+    requestHeaderFocus('student');
   }
 
   /** Called by StudentSwitcher when an out-of-cohort student is picked */
@@ -1305,6 +1347,30 @@ export default function LogSessionPage() {
             {mismatchStudent.first_name} {mismatchStudent.last_name} is in{' '}
             <strong>{mismatchStudent.cohort?.name || 'a different cohort'}</strong>,
             not the active cohort. Log a session anyway?
+          </p>
+        </Modal>
+      )}
+
+      {/* Discard ratings when switching student */}
+      {switchRequest && (
+        <Modal
+          title="Switch student?"
+          onClose={cancelSwitch}
+          footer={
+            <>
+              <button className="btn btn-outline" onClick={cancelSwitch}>
+                Keep ratings
+              </button>
+              <button className="btn btn-primary" onClick={confirmSwitch}>
+                Discard and switch
+              </button>
+            </>
+          }
+        >
+          <p className="cohort-mismatch-body">
+            Discard ratings for {studentDisplayName(selectedStudentId)} and switch to{' '}
+            {studentDisplayName(switchRequest)}? Ratings and homework you selected for{' '}
+            {studentFirstName(selectedStudentId)} will be cleared. Your notes, minutes, and date stay.
           </p>
         </Modal>
       )}
