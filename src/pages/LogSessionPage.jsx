@@ -85,6 +85,23 @@ function addDaysToDateString(dateString, days) {
   ].join('-');
 }
 
+/** The student's stored next-session start/end as the "HH:MM" strings the time
+ *  picker takes, but only when they are safe to carry to next week: the stored
+ *  slot is for this session's date, both times exist and sit on the picker's
+ *  15-minute steps, and the end is after the start. Otherwise null. */
+function carryOverTimes(slot, sessionDate) {
+  if (!slot || !sessionDate || slot.date !== sessionDate) return null;
+  const clean = (t) => {
+    const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(t || '');
+    if (!m || Number(m[1]) > 23 || !['00', '15', '30', '45'].includes(m[2])) return null;
+    return `${m[1]}:${m[2]}`;
+  };
+  const start = clean(slot.start);
+  const end = clean(slot.end);
+  if (!start || !end || end <= start) return null;
+  return { start, end };
+}
+
 export default function LogSessionPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
@@ -395,13 +412,23 @@ export default function LogSessionPage() {
 
         const { data: student, error: sErr } = await supabase
           .from('students')
-          .select('tutor_id')
+          .select('tutor_id, next_session_date, next_session_time, next_session_end_time')
           .eq('id', selectedStudentId)
           .single();
         if (cancelled) return;
         if (sErr) throw sErr;
 
-        setStudentDetail({ readings: sortedReadings, elements: elements || [], tutorId: student.tutor_id });
+        setStudentDetail({
+          readings: sortedReadings,
+          elements: elements || [],
+          tutorId: student.tutor_id,
+          // The slot scheduled at the previous session, for "Same time next week"
+          nextSlot: {
+            date: student.next_session_date,
+            start: student.next_session_time,
+            end: student.next_session_end_time,
+          },
+        });
 
         // Initialize progress from edit data or fresh
         const editData = editDataLoaded.current;
@@ -1391,6 +1418,11 @@ export default function LogSessionPage() {
   /*  Render: Main form                                                */
   /* ================================================================ */
 
+  // "Same time next week" only claims "same time" when there is a time to carry:
+  // the tutor already set one, or the student's scheduled slot can be copied.
+  const carryTimes = carryOverTimes(studentDetail ? studentDetail.nextSlot : null, sessionDate);
+  const canCarryTimes = Boolean(nextSessionTime) || Boolean(carryTimes);
+
   return (
     <div className="page log-session-page">
       {/* Unsaved-changes guard */}
@@ -1868,34 +1900,42 @@ export default function LogSessionPage() {
                 type="button"
                 onClick={() => {
                   // One week after the session date, by calendar arithmetic.
-                  // Start and end times are left exactly as the tutor set them.
                   setNextSessionDate(addDaysToDateString(sessionDate || today, 7));
+                  // Same time: carry the student's scheduled start and end, but
+                  // never overwrite a time the tutor has already set.
+                  if (!nextSessionTime && !nextSessionEndTime && carryTimes) {
+                    setNextSessionTime(carryTimes.start);
+                    setNextSessionEndTime(carryTimes.end);
+                  }
                   setIsDirty(true);
                 }}
               >
-                Same time next week
+                {canCarryTimes ? 'Same time next week' : 'Next week'}
               </button>
             </div>
             <div className="form-row" style={{ marginTop: 'var(--space-3)' }}>
               <div className="form-group">
-                <label className="form-label">Date</label>
+                <label className="form-label" htmlFor="next-session-date">Date</label>
                 <input
+                  id="next-session-date"
                   type="date"
                   className="input"
                   value={nextSessionDate}
                   onChange={(e) => handleNextDateChange(e.target.value)}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Start time</label>
+              {/* The time picker is three selects, so it is labelled as a group
+                  (each select already carries its own "Start time hour" name). */}
+              <div className="form-group" role="group" aria-labelledby="next-session-start-label">
+                <span className="form-label" id="next-session-start-label">Start time</span>
                 <TimeSelect
                   value={nextSessionTime}
                   onChange={handleNextTimeChange}
                   ariaLabelPrefix="Start time"
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">End time</label>
+              <div className="form-group" role="group" aria-labelledby="next-session-end-label">
+                <span className="form-label" id="next-session-end-label">End time</span>
                 <TimeSelect
                   value={nextSessionEndTime}
                   onChange={handleNextEndTimeChange}
