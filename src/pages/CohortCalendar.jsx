@@ -16,6 +16,7 @@ import {
 import { masteryCountsByType, masteryPercent } from '../utils/mastery';
 import { getCurrentCohort, sortCohortsChronologically } from '../utils/cohorts';
 import { tutorName } from '../utils/people';
+import { getTodayDateString } from '../utils/datetime';
 import usePageTitle from '../hooks/usePageTitle';
 import CohortReport from '../components/calendar/CohortReport';
 import StudentReport from '../components/calendar/StudentReport';
@@ -478,6 +479,10 @@ export default function CohortCalendar() {
     return `${f}${l}`.toUpperCase();
   }
 
+  // A service date is "past" only once it is strictly before today's local date.
+  // Compared as YYYY-MM-DD strings, so there is no timezone or time-of-day edge.
+  const todayStr = getTodayDateString();
+
   return (
     <div className="page cc-page">
       <div className="cc-wrap">
@@ -662,37 +667,60 @@ export default function CohortCalendar() {
                     <span className="cc-date-mo">{row.month}</span>
                   </div>
                   <div className="cc-body">
-                    {/* Parashah */}
-                    {row.reading && (
-                      <div className="cc-parashah">
-                        <span className="cc-parashah-name">
-                          Parashat {row.reading.portion_name}
-                        </span>
-                        {row.reading.portion_name_hebrew && (
-                          <span className="cc-parashah-he" dir="rtl" lang="he">
-                            {row.reading.portion_name_hebrew}
+                    {row.dateStr < todayStr ? (
+                      <>
+                        {/* Past service: always celebrated, whatever the progress
+                            or whether a reading was ever entered */}
+                        <div className="cc-parashah">
+                          <span className="cc-parashah-name cc-parashah-complete">
+                            B{'\u2019'}nai mitzvah complete
                           </span>
+                        </div>
+                        {row.reading && (
+                          <div className="cc-parashah">
+                            <span className="cc-parashah-ref">
+                              Parashat {row.reading.portion_name}
+                            </span>
+                            {row.reading.portion_name_hebrew && (
+                              <span className="cc-parashah-he" dir="rtl" lang="he">
+                                {row.reading.portion_name_hebrew}
+                              </span>
+                            )}
+                            {row.reading.reference && (
+                              <span className="cc-parashah-ref">
+                                {'\u00B7'} {row.reading.reference}
+                              </span>
+                            )}
+                          </div>
                         )}
-                        {row.reading.reference && (
-                          <span className="cc-parashah-ref">
-                            {'\u00B7'} {row.reading.reference}
-                          </span>
+                      </>
+                    ) : (
+                      <>
+                        {/* Today or later: the upcoming parashah, or pending */}
+                        {row.reading ? (
+                          <div className="cc-parashah">
+                            <span className="cc-parashah-name">
+                              Parashat {row.reading.portion_name}
+                            </span>
+                            {row.reading.portion_name_hebrew && (
+                              <span className="cc-parashah-he" dir="rtl" lang="he">
+                                {row.reading.portion_name_hebrew}
+                              </span>
+                            )}
+                            {row.reading.reference && (
+                              <span className="cc-parashah-ref">
+                                {'\u00B7'} {row.reading.reference}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="cc-parashah">
+                            <span className="cc-parashah-name cc-parashah-pending">
+                              Parashah pending assignment
+                            </span>
+                          </div>
                         )}
-                      </div>
-                    )}
-                    {!row.reading && row.date < new Date() && (
-                      <div className="cc-parashah">
-                        <span className="cc-parashah-name cc-parashah-complete">
-                          B{'\u2019'}nai mitzvah complete
-                        </span>
-                      </div>
-                    )}
-                    {!row.reading && row.date >= new Date() && (
-                      <div className="cc-parashah">
-                        <span className="cc-parashah-name cc-parashah-pending">
-                          Parashah pending assignment
-                        </span>
-                      </div>
+                      </>
                     )}
 
                     {/* Cluster flag */}
@@ -708,6 +736,7 @@ export default function CohortCalendar() {
                     {/* Student chips */}
                     <div className="cc-students">
                       {row.students.map((s) => {
+                        const isPast = row.dateStr < todayStr;
                         const tName = tutorName(s.tutor, null);
                         const torahPct = s.meta?.torahPct;
                         const haftarahPct = s.meta?.haftarahPct;
@@ -727,7 +756,7 @@ export default function CohortCalendar() {
                             {tName && (
                               <span className="cc-chip-tut">{'\u00B7'} {tName}</span>
                             )}
-                            {(hasTorah || hasHaftarah) && (
+                            {!isPast && (hasTorah || hasHaftarah) && (
                               <span className="cc-chip-readiness">
                                 {hasTorah && (
                                   <span className="cc-chip-pct">Torah {torahPct}%</span>
@@ -740,7 +769,9 @@ export default function CohortCalendar() {
                                 )}
                               </span>
                             )}
-                            <span className={paceDotClass(s.paceStatus)} aria-label={PACE_LABELS[s.paceStatus] || 'Unknown pace'} />
+                            {!isPast && (
+                              <span className={paceDotClass(s.paceStatus)} aria-label={PACE_LABELS[s.paceStatus] || 'Unknown pace'} />
+                            )}
                           </button>
                         );
                       })}
