@@ -11,7 +11,7 @@ import {
 } from '../utils/constants';
 import { calculatePace, calculateElementsSummary, formatTargetDate, formatWeeksRemaining, PACE_STATUS, PACE_COLORS, getPaceRationale } from '../utils/paceCalculations';
 import { tutorName, tutorListLabel } from '../utils/people';
-import { formatDateCompact, formatDateShort, formatDayDate, formatSessionTime, formatSessionTimeRange } from '../utils/datetime';
+import { formatDateCompact, formatDateShort, formatDayDate, formatSessionTime, formatSessionTimeRange, getTodayDateString, addDaysToDateString } from '../utils/datetime';
 import { buildNudgeTutorMailto, buildCaseloadNudgeMailto, resolvePrimaryGuardianContact } from '../utils/mailto';
 import { masteryCounts, masteryCountsByType, masteryPercent, formatMasterySummary } from '../utils/mastery';
 import usePageTitle from '../hooks/usePageTitle';
@@ -413,9 +413,7 @@ export default function Dashboard() {
 
         // Admin-only: detect missing hours and inactive tutors
         if (role === ROLES.ADMIN) {
-          const cutoff30 = new Date();
-          cutoff30.setDate(cutoff30.getDate() - 30);
-          const cutoffStr = cutoff30.toISOString().split('T')[0];
+          const cutoffStr = addDaysToDateString(getTodayDateString(), -30);
 
           // Sessions in the past 30 days with NULL minutes_worked
           const { data: missingRows, error: mhErr } = await supabase
@@ -442,9 +440,7 @@ export default function Dashboard() {
           }
 
           // Inactive tutors: tutors with active students but no session in 14+ days
-          const cutoff14 = new Date();
-          cutoff14.setDate(cutoff14.getDate() - 14);
-          const cutoff14Str = cutoff14.toISOString().split('T')[0];
+          const cutoff14Str = addDaysToDateString(getTodayDateString(), -14);
 
           // Build tutor -> student count + last session date (M:N via student_tutors)
           const tutorMap = {};

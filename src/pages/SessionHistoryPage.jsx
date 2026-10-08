@@ -15,7 +15,7 @@ import {
 } from '../utils/constants';
 import { useSessions } from '../hooks/useSessions';
 import usePageTitle from '../hooks/usePageTitle';
-import { formatDateCompact, formatSessionTime, formatSessionTimeRange } from '../utils/datetime';
+import { formatDateCompact, formatSessionTime, formatSessionTimeRange, getTodayDateString, addDaysToDateString } from '../utils/datetime';
 import { tutorName } from '../utils/people';
 import Modal from '../components/ui/Modal';
 import StudentSwitcher from '../components/ui/StudentSwitcher';
@@ -149,21 +149,17 @@ function thisMonthStart() {
 
 /** Returns YYYY-MM-DD for 30 days ago. */
 function last30DaysStart() {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return d.toISOString().slice(0, 10);
+  return addDaysToDateString(getTodayDateString(), -30);
 }
 
 /** Returns YYYY-MM-DD for 7 days ago. */
 function last7DaysStart() {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  return d.toISOString().slice(0, 10);
+  return addDaysToDateString(getTodayDateString(), -7);
 }
 
 /** Returns today as YYYY-MM-DD. */
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return getTodayDateString();
 }
 
 // ---- Page size options ----

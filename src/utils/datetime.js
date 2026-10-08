@@ -17,11 +17,47 @@
  * @returns {string} Local date in "YYYY-MM-DD" format.
  */
 export function getTodayDateString() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return formatLocalDate();
+}
+
+/**
+ * Formats a Date as "YYYY-MM-DD" using its LOCAL calendar date (never UTC).
+ * Use this for any Date that represents a calendar day, for example the Date
+ * returned by `HDate.greg()`, which is local midnight. `toISOString()` would
+ * convert that to UTC and shift it a day in any zone ahead of UTC.
+ *
+ * @param {Date} [date] - Defaults to now.
+ * @returns {string} Local date in "YYYY-MM-DD" format.
+ */
+export function formatLocalDate(date = new Date()) {
+  const y = String(date.getFullYear()).padStart(4, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Adds whole days (negative to subtract) to a "YYYY-MM-DD" string by pure
+ * calendar arithmetic, so the answer is the same in every time zone and
+ * across daylight-saving changes. Returns '' if the input is not a valid
+ * date string.
+ *
+ * Typical use: `addDaysToDateString(getTodayDateString(), -30)` for a
+ * "30 days ago" cutoff to compare against database date columns.
+ *
+ * @param {string} dateString - "YYYY-MM-DD".
+ * @param {number} days - Whole days to add.
+ * @returns {string}
+ */
+export function addDaysToDateString(dateString, days) {
+  const [y, m, d] = String(dateString).split('-').map(Number);
+  if (![y, m, d].every(Number.isFinite)) return '';
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return [
+    String(t.getUTCFullYear()).padStart(4, '0'),
+    String(t.getUTCMonth() + 1).padStart(2, '0'),
+    String(t.getUTCDate()).padStart(2, '0'),
+  ].join('-');
 }
 
 /**

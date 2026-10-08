@@ -14,7 +14,7 @@ import {
 } from '../utils/constants';
 import { useCohorts } from '../hooks/useCohorts';
 import usePageTitle from '../hooks/usePageTitle';
-import { formatSessionDate } from '../utils/datetime';
+import { formatSessionDate, getTodayDateString, addDaysToDateString } from '../utils/datetime';
 import HelpTip from '../components/ui/HelpTip';
 import Modal from '../components/ui/Modal';
 import CelebrationMoment from '../components/ui/CelebrationMoment';
@@ -59,30 +59,6 @@ function generateUuid() {
   b[8] = (b[8] & 0x3f) | 0x80;
   const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
-}
-
-/** Today's date as YYYY-MM-DD from the device's LOCAL calendar. Not
- *  toISOString(), which is UTC: after 8 pm in New York it already says
- *  tomorrow, and just after midnight in Israel it still says yesterday. */
-function localDateString(date = new Date()) {
-  const y = String(date.getFullYear()).padStart(4, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-/** Adds whole days to a YYYY-MM-DD string using pure calendar arithmetic, so
- *  the answer is the same in every timezone and across daylight-saving changes.
- *  Returns '' if the input is not a valid date string. */
-function addDaysToDateString(dateString, days) {
-  const [y, m, d] = String(dateString).split('-').map(Number);
-  if (![y, m, d].every(Number.isFinite)) return '';
-  const t = new Date(Date.UTC(y, m - 1, d + days));
-  return [
-    String(t.getUTCFullYear()).padStart(4, '0'),
-    String(t.getUTCMonth() + 1).padStart(2, '0'),
-    String(t.getUTCDate()).padStart(2, '0'),
-  ].join('-');
 }
 
 /** The student's stored next-session start/end as the "HH:MM" strings the time
@@ -132,7 +108,7 @@ export default function LogSessionPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Form fields
-  const today = localDateString();
+  const today = getTodayDateString();
   const [sessionDate, setSessionDate] = useState(today);
   const [verseProgress, setVerseProgress] = useState({});
   const [elementProgress, setElementProgress] = useState({});

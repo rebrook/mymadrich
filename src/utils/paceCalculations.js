@@ -351,10 +351,17 @@ export function formatWeeksRemaining(weeksRemaining) {
 
 /**
  * Formats a date as a short readable string (e.g., "Oct 15, 2026").
+ *
+ * Accepts a Date, a timestamp string, or a bare "YYYY-MM-DD" date string such
+ * as `mitzvah_date` from the database. A bare date string is read as LOCAL
+ * midnight: `new Date('2026-10-17')` on its own is UTC midnight and displays
+ * as the previous day in US time zones.
  */
 export function formatTargetDate(date) {
   if (!date) return '';
-  const d = new Date(date);
+  const d = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? new Date(date + 'T00:00:00')
+    : new Date(date);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 

@@ -13,6 +13,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { getTodayDateString, addDaysToDateString } from '../../utils/datetime';
 
 export default function TutorMissingHoursNudge({ tutorId }) {
   const [missingCount, setMissingCount] = useState(0);
@@ -23,9 +24,7 @@ export default function TutorMissingHoursNudge({ tutorId }) {
 
     async function checkMissing() {
       try {
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - 30);
-        const cutoffStr = cutoff.toISOString().split('T')[0];
+        const cutoffStr = addDaysToDateString(getTodayDateString(), -30);
 
         const { count, error: err } = await supabase
           .from('sessions')

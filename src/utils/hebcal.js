@@ -16,6 +16,7 @@
 import { HebrewCalendar, HDate, ParshaEvent } from '@hebcal/core';
 import { getLeyningForParshaHaShavua, getLeyningOnDate } from '@hebcal/leyning';
 import { getTriennialForParshaHaShavua } from '@hebcal/triennial';
+import { formatLocalDate } from './datetime';
 
 // ============================================================
 // Verse counts per chapter for Torah and common Haftarah books
@@ -108,7 +109,7 @@ export function getParashahForDate(dateStr) {
         parshaHebrew: null,
         leyning: null,
         event: null,
-        shabbatDate: shabbatHd.greg().toISOString().split('T')[0],
+        shabbatDate: formatLocalDate(shabbatHd.greg()),
         holidayNote: holidayEvents.length > 0
           ? `This Shabbat is ${holidayEvents[0].getDesc()}. No regular parashah reading.`
           : 'No parashah found for this date.',
@@ -133,7 +134,7 @@ export function getParashahForDate(dateStr) {
       parshaHebrew,
       leyning,
       event: parshaEvent,
-      shabbatDate: shabbatHd.greg().toISOString().split('T')[0],
+      shabbatDate: formatLocalDate(shabbatHd.greg()),
       holidayNote: null,
       error: null,
     };

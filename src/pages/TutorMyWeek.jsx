@@ -17,7 +17,7 @@ import { supabase } from '../lib/supabase';
 import { QUALITY, QUALITY_LABELS_PRECISION, QUALITY_COLORS, COLOR_GRAY } from '../utils/constants';
 import { calculatePace, PACE_STATUS, PACE_LABELS, formatTargetDate } from '../utils/paceCalculations';
 import { masteryCounts } from '../utils/mastery';
-import { formatSessionTime, formatDateShort, formatSessionTimeRange, computeDurationMinutes } from '../utils/datetime';
+import { formatSessionTime, formatDateShort, formatSessionTimeRange, computeDurationMinutes, addDaysToDateString } from '../utils/datetime';
 import { mitzvahLabel } from '../utils/people';
 import { resolvePrimaryGuardianContact, buildTutorSessionMailto } from '../utils/mailto';
 import { buildSessionIcs, buildWeekIcs, downloadIcs } from '../utils/icsBuilder';
@@ -56,11 +56,7 @@ function formatDayHeading(dateStr) {
 /** Get relative day label: "Today", "Tomorrow", or null. */
 function getRelativeDayLabel(dateStr, todayStr) {
   if (dateStr === todayStr) return 'Today';
-  const today = new Date(todayStr + 'T00:00:00');
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-  if (dateStr === tomorrowStr) return 'Tomorrow';
+  if (dateStr === addDaysToDateString(todayStr, 1)) return 'Tomorrow';
   return null;
 }
 
