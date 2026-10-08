@@ -659,7 +659,7 @@ export default function CohortCalendar() {
               {group.rows.map((row) => (
                 <div
                   key={row.dateStr}
-                  className={`cc-shab${row.isCluster ? ' cc-shab-cluster' : ''}`}
+                  className={`cc-shab${row.isCluster && row.dateStr >= todayStr ? ' cc-shab-cluster' : ''}`}
                 >
                   <div className="cc-date-col">
                     <span className="cc-date-dow">{row.dow}</span>
@@ -723,8 +723,8 @@ export default function CohortCalendar() {
                       </>
                     )}
 
-                    {/* Cluster flag */}
-                    {row.isCluster && (
+                    {/* Cluster flag: a planning cue, so upcoming services only */}
+                    {row.isCluster && row.dateStr >= todayStr && (
                       <div className="cc-flag">
                         <span className="cc-star" aria-hidden="true">{'\u2605'}</span>
                         <span>
