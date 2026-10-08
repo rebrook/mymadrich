@@ -61,6 +61,30 @@ function generateUuid() {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
+/** Today's date as YYYY-MM-DD from the device's LOCAL calendar. Not
+ *  toISOString(), which is UTC: after 8 pm in New York it already says
+ *  tomorrow, and just after midnight in Israel it still says yesterday. */
+function localDateString(date = new Date()) {
+  const y = String(date.getFullYear()).padStart(4, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Adds whole days to a YYYY-MM-DD string using pure calendar arithmetic, so
+ *  the answer is the same in every timezone and across daylight-saving changes.
+ *  Returns '' if the input is not a valid date string. */
+function addDaysToDateString(dateString, days) {
+  const [y, m, d] = String(dateString).split('-').map(Number);
+  if (![y, m, d].every(Number.isFinite)) return '';
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return [
+    String(t.getUTCFullYear()).padStart(4, '0'),
+    String(t.getUTCMonth() + 1).padStart(2, '0'),
+    String(t.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 export default function LogSessionPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
@@ -91,7 +115,7 @@ export default function LogSessionPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Form fields
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateString();
   const [sessionDate, setSessionDate] = useState(today);
   const [verseProgress, setVerseProgress] = useState({});
   const [elementProgress, setElementProgress] = useState({});
@@ -1843,12 +1867,9 @@ export default function LogSessionPage() {
                 className="btn btn-outline btn-small"
                 type="button"
                 onClick={() => {
-                  const base = sessionDate || new Date().toISOString().split('T')[0];
-                  const d = new Date(base + 'T00:00:00');
-                  d.setDate(d.getDate() + 7);
-                  const nextDate = d.toISOString().split('T')[0];
-                  setNextSessionDate(nextDate);
-                  // Preserve times (carry forward existing start + end)
+                  // One week after the session date, by calendar arithmetic.
+                  // Start and end times are left exactly as the tutor set them.
+                  setNextSessionDate(addDaysToDateString(sessionDate || today, 7));
                   setIsDirty(true);
                 }}
               >
