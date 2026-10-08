@@ -319,8 +319,16 @@ export default function LogSessionPage() {
       setVerseProgress({});
       setElementProgress({});
       setHomeworkSelections({});
+      // A load for the previous student may still be in flight; it is cancelled
+      // by the cleanup below and will not clear this flag itself.
+      setLoadingDetail(false);
       return;
     }
+
+    // Set by the cleanup when the student changes (or the page unmounts). A
+    // superseded load must not write its results, report its error, or mark
+    // loading as finished while a newer load is still running.
+    let cancelled = false;
 
     async function loadDetail() {
       setLoadingDetail(true);
@@ -338,6 +346,7 @@ export default function LogSessionPage() {
           .select('*, verses(id, verse_reference, sefaria_url, sort_order)')
           .eq('student_id', selectedStudentId)
           .order('sort_order');
+        if (cancelled) return;
         if (rErr) throw rErr;
 
         const sortedReadings = (readings || []).map((r) => ({
@@ -350,6 +359,7 @@ export default function LogSessionPage() {
           .select('*')
           .eq('student_id', selectedStudentId)
           .order('sort_order');
+        if (cancelled) return;
         if (eErr) throw eErr;
 
         const { data: student, error: sErr } = await supabase
@@ -357,6 +367,7 @@ export default function LogSessionPage() {
           .select('tutor_id')
           .eq('id', selectedStudentId)
           .single();
+        if (cancelled) return;
         if (sErr) throw sErr;
 
         setStudentDetail({ readings: sortedReadings, elements: elements || [], tutorId: student.tutor_id });
@@ -405,13 +416,16 @@ export default function LogSessionPage() {
         });
         setHomeworkSelections(hw);
       } catch (err) {
-        setError(err.message);
+        if (!cancelled) setError(err.message);
       } finally {
-        setLoadingDetail(false);
+        if (!cancelled) setLoadingDetail(false);
       }
     }
 
     loadDetail();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedStudentId]);
 
   /* ================================================================ */
