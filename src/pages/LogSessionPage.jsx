@@ -154,6 +154,11 @@ export default function LogSessionPage() {
   const [mismatchStudent, setMismatchStudent] = useState(null);
   // Student id waiting on the "discard ratings and switch?" confirmation
   const [switchRequest, setSwitchRequest] = useState(null);
+  // "Add minutes worked?" prompt: null when closed, else { suggestion } where
+  // suggestion is the student's last logged session length (or null)
+  const [minutesPrompt, setMinutesPrompt] = useState(null);
+  // The prompt is shown at most once per form, and never blocks saving
+  const minutesPromptShownRef = useRef(false);
 
   // aria-live region
   const liveRegionRef = useRef(null);
@@ -987,7 +992,11 @@ export default function LogSessionPage() {
   /*  Save                                                             */
   /* ================================================================ */
 
-  async function handleSave() {
+  async function handleSave(opts) {
+    // The Save button passes a click event here; only a real number counts.
+    const minutesOverride =
+      opts && typeof opts.minutesOverride === 'number' ? opts.minutesOverride : null;
+
     if (!selectedStudentId) {
       setSaveMessage('Please select a student.');
       requestHeaderFocus('student');
@@ -1011,6 +1020,14 @@ export default function LogSessionPage() {
     if (!hasAnyProgress()) {
       setSaveMessage('Please rate at least one verse or service element.');
       focusFirstRatingSection();
+      return;
+    }
+
+    // Minutes worked is optional, but hours reporting depends on it. If it is
+    // blank, ask once per form. This never blocks: "Save without" saves as null.
+    if (minutesOverride == null && minutesWorked === '' && !minutesPromptShownRef.current) {
+      minutesPromptShownRef.current = true;
+      openMinutesPrompt();
       return;
     }
 
@@ -1083,7 +1100,10 @@ export default function LogSessionPage() {
         p_session: {
           student_id: selectedStudentId,
           session_date: sessionDate,
-          minutes_worked: minutesWorked !== '' ? parseInt(minutesWorked, 10) : null,
+          minutes_worked:
+            minutesOverride != null
+              ? minutesOverride
+              : minutesWorked !== '' ? parseInt(minutesWorked, 10) : null,
           homework_notes: homeworkNotes.trim() || null,
           lesson_notes: lessonNotes.trim() || null,
           homework_minutes_per_day: homeworkMinutes ? parseInt(homeworkMinutes, 10) : null,
@@ -1155,8 +1175,61 @@ export default function LogSessionPage() {
   }
 
   // ---- Reset for another session ----
+  /* ---- "Add minutes worked?" prompt ---- */
+
+  /** Opens the prompt at once, then looks up the student's last logged session
+   *  length so it can be offered as a one-tap choice. The lookup is a
+   *  convenience: if it fails or finds nothing, the prompt works without it. */
+  async function openMinutesPrompt() {
+    setMinutesPrompt({ suggestion: null });
+    try {
+      let query = supabase
+        .from('sessions')
+        .select('minutes_worked')
+        .eq('student_id', selectedStudentId)
+        .not('minutes_worked', 'is', null)
+        .order('session_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (isEditMode) query = query.neq('id', sessionId);
+      const { data, error: lookupErr } = await query;
+      if (lookupErr) throw lookupErr;
+      const last = data && data[0] ? data[0].minutes_worked : null;
+      if (Number.isInteger(last) && last > 0 && last <= 480) {
+        // Ignore the answer if the prompt was closed while the lookup ran
+        setMinutesPrompt((prev) => (prev ? { ...prev, suggestion: last } : prev));
+      }
+    } catch (err) {
+      console.error('Could not load last session length:', err.message);
+    }
+  }
+
+  /** Add minutes (also Esc / backdrop): back to the form, focused on the field */
+  function chooseAddMinutes() {
+    setMinutesPrompt(null);
+    setProgressFocus((prev) => ({ id: 'minutes-worked', nonce: (prev?.nonce || 0) + 1 }));
+  }
+
+  /** Save without: saves with blank minutes (null), exactly as before */
+  function chooseSaveWithout() {
+    setMinutesPrompt(null);
+    handleSave();
+  }
+
+  /** Save with the suggested minutes. The number is passed straight to the
+   *  save, because state set here would not be visible to it yet. */
+  function chooseSaveWithSuggestion() {
+    const minutes = minutesPrompt ? minutesPrompt.suggestion : null;
+    setMinutesPrompt(null);
+    if (typeof minutes !== 'number') return;
+    setMinutesWorked(String(minutes));
+    setIsDirty(true);
+    handleSave({ minutesOverride: minutes });
+  }
+
   function handleLogAnother() {
     draftSessionIdRef.current = null; // next session gets a fresh id
+    minutesPromptShownRef.current = false; // ask again for the next session
     setSelectedStudentId('');
     setSessionDate(today);
     setStudentDetail(null);
@@ -1371,6 +1444,36 @@ export default function LogSessionPage() {
             Discard ratings for {studentDisplayName(selectedStudentId)} and switch to{' '}
             {studentDisplayName(switchRequest)}? Ratings and homework you selected for{' '}
             {studentFirstName(selectedStudentId)} will be cleared. Your notes, minutes, and date stay.
+          </p>
+        </Modal>
+      )}
+
+      {/* Minutes worked is blank: ask once, never block */}
+      {minutesPrompt && (
+        <Modal
+          title="Add minutes worked?"
+          onClose={chooseAddMinutes}
+          footer={
+            <>
+              <button className="btn btn-outline" onClick={chooseSaveWithout}>
+                Save without
+              </button>
+              {minutesPrompt.suggestion != null && (
+                <button className="btn btn-outline" onClick={chooseSaveWithSuggestion}>
+                  Save with {minutesPrompt.suggestion} min
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={chooseAddMinutes}>
+                Add minutes
+              </button>
+            </>
+          }
+        >
+          <p className="cohort-mismatch-body">
+            Needed for hours reporting. You can save without it.
+            {minutesPrompt.suggestion != null && (
+              <> The last session logged for this student was {minutesPrompt.suggestion} min.</>
+            )}
           </p>
         </Modal>
       )}
