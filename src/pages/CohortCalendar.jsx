@@ -205,6 +205,8 @@ export default function CohortCalendar() {
   const calendarData = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    // Service dates strictly before this (local YYYY-MM-DD) have been celebrated
+    const todayStr = getTodayDateString();
 
     // Only students with a mitzvah_date
     const dated = students
@@ -269,14 +271,16 @@ export default function CohortCalendar() {
 
     // Stats
     const totalServiceDates = shabbatRows.length;
-    const heavyShabbatot = shabbatRows.filter((r) => r.isCluster).length;
-    const daysOut = dated.map((s) => {
-      const diff = Math.ceil((s.mitzvahD - today) / (1000 * 60 * 60 * 24));
-      return diff;
-    });
+    // Heavy Shabbatot is a planning figure: upcoming services only
+    const heavyShabbatot = shabbatRows.filter((r) => r.isCluster && r.dateStr >= todayStr).length;
+    // Average distance to the services still ahead. Passed dates are excluded:
+    // their negative distances would drag the average down. null when none remain.
+    const daysOut = dated
+      .filter((s) => s.mitzvah_date >= todayStr)
+      .map((s) => Math.ceil((s.mitzvahD - today) / (1000 * 60 * 60 * 24)));
     const avgDaysOut = daysOut.length > 0
       ? Math.round(daysOut.reduce((a, b) => a + b, 0) / daysOut.length)
-      : 0;
+      : null;
 
     // Next b'nai mitzvah
     const futureDated = dated.filter((s) => s.mitzvahD >= today);
@@ -345,8 +349,14 @@ export default function CohortCalendar() {
       critical: 0,
       notStarted: 0,
       completed: 0,
+      celebrated: 0,
     };
     for (const s of dated) {
+      // Passed services are counted as celebrated, not under a pace label
+      if (s.mitzvah_date < todayStr) {
+        paceBreakdown.celebrated++;
+        continue;
+      }
       const ps = s.paceStatus;
       if (ps === PACE_STATUS.AHEAD) paceBreakdown.ahead++;
       else if (ps === PACE_STATUS.ON_TRACK) paceBreakdown.onTrack++;
@@ -527,7 +537,7 @@ export default function CohortCalendar() {
                 </div>
               </div>
               <div className="cc-stat">
-                <div className="cc-stat-n">{calendarData.avgDaysOut}</div>
+                <div className="cc-stat-n">{calendarData.avgDaysOut ?? '\u2014'}</div>
                 <div className="cc-stat-l">avg days out</div>
               </div>
             </div>

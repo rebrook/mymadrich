@@ -3,7 +3,8 @@ import {
   milestoneForReadiness,
   QUALITY_LABELS_ENCOURAGEMENT,
 } from '../../utils/constants';
-import { tutorName } from '../../utils/people';
+import { tutorName, mitzvahLabel } from '../../utils/people';
+import { getTodayDateString } from '../../utils/datetime';
 
 /**
  * StudentReport — family-ready progress report for a single student.
@@ -59,6 +60,14 @@ export default function StudentReport({
 
   // Tutor (display name only, never email)
   const tName = tutorName(student.tutor, null);
+
+  // Once the service date has passed, the report celebrates. It stops describing
+  // progress (stage, percentages, journey rungs) because there is nothing left to
+  // progress toward, and a missing record must never read as "just getting started".
+  const isPast = Boolean(student.mitzvah_date) && student.mitzvah_date < getTodayDateString();
+  const celebrationLabel = mitzvahLabel(student.mitzvah_type);
+  const hasHighlights = Boolean(tName) || meta.sessionCount > 0
+    || Boolean(meta.firstSessionDate) || Boolean(cohort);
 
   // Reading breakdown (family-facing, pronoun-free)
   const readingLines = buildReadingBreakdown({
@@ -129,103 +138,131 @@ export default function StudentReport({
           </div>
         )}
 
-        {/* Milestone stage */}
-        <section className="sr-section">
-          <h2 className="sr-h2">Current stage</h2>
-          <div className="sr-stage-card">
-            <div className="sr-stage-flame" aria-hidden="true">
-              {stage.key === 'hanachah' ? '\u25CB' : '\u2605'}
+        {/* Milestone stage (after the service: celebration instead) */}
+        {isPast ? (
+          <section className="sr-section">
+            <div className="sr-stage-card">
+              <div className="sr-stage-flame" aria-hidden="true">{'\u2605'}</div>
+              <div className="sr-stage-body">
+                <div className="sr-stage-en">
+                  {firstName ? `Mazal tov to ${firstName} and family` : 'Mazal tov to the family'}
+                </div>
+                {/* "mazal tov" in Hebrew; confirm with clergy alongside the stage names */}
+                <div className="sr-stage-he" dir="rtl" lang="he">{'\u05DE\u05D6\u05DC \u05D8\u05D5\u05D1'}</div>
+                <div className="sr-stage-blurb">
+                  Thank you for letting us be part of this journey.{' '}
+                  {firstName ? `${firstName}\u2019s ${celebrationLabel}` : `The ${celebrationLabel}`}
+                  {' '}was celebrated on {mitzvahDate}.
+                </div>
+              </div>
             </div>
-            <div className="sr-stage-body">
-              <div className="sr-stage-en">{stage.en}</div>
-              <div className="sr-stage-he" dir="rtl" lang="he">{stage.he}</div>
-              <div className="sr-stage-translit">{stage.translit}</div>
-              <div className="sr-stage-blurb">{stage.blurb}</div>
+          </section>
+        ) : (
+          <section className="sr-section">
+            <h2 className="sr-h2">Current stage</h2>
+            <div className="sr-stage-card">
+              <div className="sr-stage-flame" aria-hidden="true">
+                {stage.key === 'hanachah' ? '\u25CB' : '\u2605'}
+              </div>
+              <div className="sr-stage-body">
+                <div className="sr-stage-en">{stage.en}</div>
+                <div className="sr-stage-he" dir="rtl" lang="he">{stage.he}</div>
+                <div className="sr-stage-translit">{stage.translit}</div>
+                <div className="sr-stage-blurb">{stage.blurb}</div>
+              </div>
+              <div className="sr-stage-pct">{masteryPct}%</div>
             </div>
-            <div className="sr-stage-pct">{masteryPct}%</div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Reading progress (family-facing) */}
-        <section className="sr-section">
-          <h2 className="sr-h2">Reading progress</h2>
-          {readingLines.map((line, i) => (
-            <p key={i} className="sr-reading-line">{line}</p>
-          ))}
-        </section>
+        {!isPast && (
+          <section className="sr-section">
+            <h2 className="sr-h2">Reading progress</h2>
+            {readingLines.map((line, i) => (
+              <p key={i} className="sr-reading-line">{line}</p>
+            ))}
+          </section>
+        )}
 
         {/* The menorah journey (stages overview) */}
-        <section className="sr-section">
-          <h2 className="sr-h2">The journey</h2>
-          <div className="sr-journey-stages">
-            {MILESTONE_STAGES.slice(1).map((s) => {
-              const isDone = masteryPct >= s.min && s.key !== stage.key && masteryPct > s.max;
-              const isCurrent = s.key === stage.key;
-              return (
-                <div
-                  key={s.key}
-                  className={
-                    'sr-journey-rung'
-                    + (isDone ? ' sr-rung-done' : '')
-                    + (isCurrent ? ' sr-rung-now' : '')
-                  }
-                >
-                  <span className="sr-rung-flame" aria-hidden="true">
-                    {isDone ? '\u2713' : isCurrent ? '\u2605' : ''}
-                  </span>
-                  <span className="sr-rung-en">{s.en}</span>
-                  <span className="sr-rung-band">
-                    {s.min === s.max ? `${s.min}%` : `${s.min}\u2013${s.max}%`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        {!isPast && (
+          <section className="sr-section">
+            <h2 className="sr-h2">The journey</h2>
+            <div className="sr-journey-stages">
+              {MILESTONE_STAGES.slice(1).map((s) => {
+                const isDone = masteryPct >= s.min && s.key !== stage.key && masteryPct > s.max;
+                const isCurrent = s.key === stage.key;
+                return (
+                  <div
+                    key={s.key}
+                    className={
+                      'sr-journey-rung'
+                      + (isDone ? ' sr-rung-done' : '')
+                      + (isCurrent ? ' sr-rung-now' : '')
+                    }
+                  >
+                    <span className="sr-rung-flame" aria-hidden="true">
+                      {isDone ? '\u2713' : isCurrent ? '\u2605' : ''}
+                    </span>
+                    <span className="sr-rung-en">{s.en}</span>
+                    <span className="sr-rung-band">
+                      {s.min === s.max ? `${s.min}%` : `${s.min}\u2013${s.max}%`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Journey highlights */}
-        <section className="sr-section">
-          <h2 className="sr-h2">Highlights</h2>
-          <div className="sr-highlights">
-            {tName && (
-              <div className="sr-highlight">
-                <span className="sr-hl-label">Tutor</span>
-                <span className="sr-hl-value">{tName}</span>
-              </div>
-            )}
-            {meta.sessionCount > 0 && (
-              <div className="sr-highlight">
-                <span className="sr-hl-label">Sessions completed</span>
-                <span className="sr-hl-value">{meta.sessionCount}</span>
-              </div>
-            )}
-            {meta.firstSessionDate && (
-              <div className="sr-highlight">
-                <span className="sr-hl-label">First session</span>
-                <span className="sr-hl-value">
-                  {new Date(meta.firstSessionDate + 'T00:00:00').toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </span>
-              </div>
-            )}
-            {cohort && (
-              <div className="sr-highlight">
-                <span className="sr-hl-label">Cohort</span>
-                <span className="sr-hl-value">{cohort.name}</span>
-              </div>
-            )}
-          </div>
-        </section>
+        {(!isPast || hasHighlights) && (
+          <section className="sr-section">
+            <h2 className="sr-h2">Highlights</h2>
+            <div className="sr-highlights">
+              {tName && (
+                <div className="sr-highlight">
+                  <span className="sr-hl-label">Tutor</span>
+                  <span className="sr-hl-value">{tName}</span>
+                </div>
+              )}
+              {meta.sessionCount > 0 && (
+                <div className="sr-highlight">
+                  <span className="sr-hl-label">Sessions completed</span>
+                  <span className="sr-hl-value">{meta.sessionCount}</span>
+                </div>
+              )}
+              {meta.firstSessionDate && (
+                <div className="sr-highlight">
+                  <span className="sr-hl-label">First session</span>
+                  <span className="sr-hl-value">
+                    {new Date(meta.firstSessionDate + 'T00:00:00').toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
+              {cohort && (
+                <div className="sr-highlight">
+                  <span className="sr-hl-label">Cohort</span>
+                  <span className="sr-hl-value">{cohort.name}</span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Note */}
-        <div className="sr-note">
-          <span>
-            Hebrew stage names and transliterations are pending rabbinic review
-          </span>
-        </div>
+        {!isPast && (
+          <div className="sr-note">
+            <span>
+              Hebrew stage names and transliterations are pending rabbinic review
+            </span>
+          </div>
+        )}
 
         {/* Footer */}
         <footer className="cc-report-footer">

@@ -1,6 +1,7 @@
 import { PACE_STATUS, PACE_LABELS, formatTargetDate } from '../../utils/paceCalculations';
 import { milestoneForReadiness } from '../../utils/constants';
 import { tutorName } from '../../utils/people';
+import { getTodayDateString } from '../../utils/datetime';
 
 /**
  * CohortReport — board/clergy-ready cohort summary.
@@ -28,8 +29,12 @@ export default function CohortReport({
   const { dated, totalServiceDates, heavyShabbatot, avgDaysOut, paceBreakdown, shabbatRows } =
     calendarData;
 
-  // Cluster details
-  const clusterRows = shabbatRows.filter((r) => r.isCluster);
+  // A service date strictly before today (local) has been celebrated
+  const todayStr = getTodayDateString();
+  const isPastRow = (row) => row.dateStr < todayStr;
+
+  // Cluster details: a planning cue, so upcoming services only
+  const clusterRows = shabbatRows.filter((r) => r.isCluster && !isPastRow(r));
 
   return (
     <div className="cc-report-page">
@@ -82,7 +87,7 @@ export default function CohortReport({
               </div>
             </div>
             <div className="cc-report-stat">
-              <div className="cc-report-stat-n">{avgDaysOut}</div>
+              <div className="cc-report-stat-n">{avgDaysOut ?? '\u2014'}</div>
               <div className="cc-report-stat-l">avg days out</div>
             </div>
           </div>
@@ -105,6 +110,7 @@ export default function CohortReport({
               <PaceRow label="Critical" count={paceBreakdown.critical} dotClass="cc-pace-critical" />
               <PaceRow label="Not Started" count={paceBreakdown.notStarted} dotClass="cc-pace-neutral" />
               <PaceRow label="Completed" count={paceBreakdown.completed} dotClass="cc-pace-completed" />
+              <PaceRow label="Celebrated" count={paceBreakdown.celebrated} dotClass="cc-pace-completed" />
             </tbody>
           </table>
         </section>
@@ -161,7 +167,7 @@ export default function CohortReport({
             </thead>
             <tbody>
               {shabbatRows.map((row) => (
-                <tr key={row.dateStr} className={row.isCluster ? 'cc-report-row-cluster' : ''}>
+                <tr key={row.dateStr} className={row.isCluster && !isPastRow(row) ? 'cc-report-row-cluster' : ''}>
                   <td>
                     {row.date.toLocaleDateString('en-US', {
                       month: 'short',
@@ -169,19 +175,19 @@ export default function CohortReport({
                       year: 'numeric',
                     })}
                   </td>
-                  <td>{row.reading?.portion_name || 'Pending'}</td>
+                  <td>{row.reading?.portion_name || (isPastRow(row) ? 'Complete' : 'Pending')}</td>
                   <td>
                     {row.students.map((s) => `${s.first_name} ${s.last_name}`).join(', ')}
                   </td>
                   <td>
-                    {row.students.map((s) => {
+                    {isPastRow(row) ? '\u2014' : row.students.map((s) => {
                       const meta = studentMeta[s.id];
                       if (!meta || meta.torahPct === null || meta.torahPct === undefined) return '\u2014';
                       return `${meta.torahPct}%`;
                     }).join(', ')}
                   </td>
                   <td>
-                    {row.students.map((s) => {
+                    {isPastRow(row) ? '\u2014' : row.students.map((s) => {
                       const meta = studentMeta[s.id];
                       if (!meta || meta.haftarahPct === null || meta.haftarahPct === undefined) return '\u2014';
                       return `${meta.haftarahPct}%`;
