@@ -342,28 +342,45 @@ export default function CohortCalendar() {
     upcomingSessions.sort((a, b) => a.date - b.date);
 
     // Pace breakdown for report
+    // Status breakdown. Grouped exactly like the Dashboard's cohort hero, so the two
+    // screens always agree and always add up to the cohort: passed services are
+    // Celebrated; Ahead counts as On Track, Past Due as Critical, and No Verses
+    // (or anything unrecognised) as Not Started. The "of which" counts (ahead,
+    // pastDue, noVerses) keep the detail for the report's notes.
     const paceBreakdown = {
-      ahead: 0,
-      onTrack: 0,
-      behind: 0,
-      critical: 0,
       notStarted: 0,
-      completed: 0,
+      noVerses: 0,
+      critical: 0,
+      pastDue: 0,
+      behind: 0,
+      onTrack: 0,
+      ahead: 0,
+      fullyPrepared: 0,
       celebrated: 0,
+      familyTutored: 0,
+      total: 0,
     };
     for (const s of dated) {
-      // Passed services are counted as celebrated, not under a pace label
+      const ps = s.paceStatus;
       if (s.mitzvah_date < todayStr) {
         paceBreakdown.celebrated++;
-        continue;
+      } else if (ps === PACE_STATUS.FAMILY_TUTORED) {
+        paceBreakdown.familyTutored++;
+      } else if (ps === PACE_STATUS.ON_TRACK || ps === PACE_STATUS.AHEAD) {
+        paceBreakdown.onTrack++;
+        if (ps === PACE_STATUS.AHEAD) paceBreakdown.ahead++;
+      } else if (ps === PACE_STATUS.BEHIND) {
+        paceBreakdown.behind++;
+      } else if (ps === PACE_STATUS.CRITICAL || ps === PACE_STATUS.PAST_DUE) {
+        paceBreakdown.critical++;
+        if (ps === PACE_STATUS.PAST_DUE) paceBreakdown.pastDue++;
+      } else if (ps === PACE_STATUS.COMPLETED) {
+        paceBreakdown.fullyPrepared++;
+      } else {
+        paceBreakdown.notStarted++;
+        if (ps === PACE_STATUS.NO_VERSES) paceBreakdown.noVerses++;
       }
-      const ps = s.paceStatus;
-      if (ps === PACE_STATUS.AHEAD) paceBreakdown.ahead++;
-      else if (ps === PACE_STATUS.ON_TRACK) paceBreakdown.onTrack++;
-      else if (ps === PACE_STATUS.BEHIND) paceBreakdown.behind++;
-      else if (ps === PACE_STATUS.CRITICAL) paceBreakdown.critical++;
-      else if (ps === PACE_STATUS.NOT_STARTED) paceBreakdown.notStarted++;
-      else if (ps === PACE_STATUS.COMPLETED) paceBreakdown.completed++;
+      paceBreakdown.total++;
     }
 
     return {

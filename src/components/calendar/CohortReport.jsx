@@ -93,9 +93,9 @@ export default function CohortReport({
           </div>
         </section>
 
-        {/* Pace breakdown */}
+        {/* Status breakdown: same groups as the Dashboard, adds up to the cohort */}
         <section className="cc-report-section">
-          <h2 className="cc-report-h2">Pace breakdown</h2>
+          <h2 className="cc-report-h2">Status breakdown</h2>
           <table className="cc-report-table">
             <thead>
               <tr>
@@ -104,13 +104,32 @@ export default function CohortReport({
               </tr>
             </thead>
             <tbody>
-              <PaceRow label="Ahead" count={paceBreakdown.ahead} dotClass="cc-pace-ahead" />
-              <PaceRow label="On Track" count={paceBreakdown.onTrack} dotClass="cc-pace-ontrack" />
-              <PaceRow label="Behind" count={paceBreakdown.behind} dotClass="cc-pace-behind" />
-              <PaceRow label="Critical" count={paceBreakdown.critical} dotClass="cc-pace-critical" />
-              <PaceRow label="Not Started" count={paceBreakdown.notStarted} dotClass="cc-pace-neutral" />
-              <PaceRow label="Completed" count={paceBreakdown.completed} dotClass="cc-pace-completed" />
+              <PaceRow
+                label={PACE_LABELS[PACE_STATUS.NOT_STARTED]}
+                count={paceBreakdown.notStarted}
+                dotClass="cc-pace-neutral"
+                note={paceBreakdown.noVerses > 0 ? `${paceBreakdown.noVerses} with no verses` : null}
+              />
+              <PaceRow
+                label={PACE_LABELS[PACE_STATUS.CRITICAL]}
+                count={paceBreakdown.critical}
+                dotClass="cc-pace-critical"
+                note={paceBreakdown.pastDue > 0 ? `${paceBreakdown.pastDue} past due` : null}
+              />
+              <PaceRow label={PACE_LABELS[PACE_STATUS.BEHIND]} count={paceBreakdown.behind} dotClass="cc-pace-behind" />
+              <PaceRow
+                label={PACE_LABELS[PACE_STATUS.ON_TRACK]}
+                count={paceBreakdown.onTrack}
+                dotClass="cc-pace-ontrack"
+                note={paceBreakdown.ahead > 0 ? `${paceBreakdown.ahead} ahead` : null}
+              />
+              <PaceRow label={PACE_LABELS[PACE_STATUS.COMPLETED]} count={paceBreakdown.fullyPrepared} dotClass="cc-pace-completed" />
               <PaceRow label="Celebrated" count={paceBreakdown.celebrated} dotClass="cc-pace-completed" />
+              <PaceRow label={PACE_LABELS[PACE_STATUS.FAMILY_TUTORED]} count={paceBreakdown.familyTutored} dotClass="cc-pace-neutral" />
+              <tr>
+                <td style={{ borderTop: '2px solid var(--color-border)', fontWeight: 600 }}>Total</td>
+                <td style={{ borderTop: '2px solid var(--color-border)', fontWeight: 600 }}>{paceBreakdown.total}</td>
+              </tr>
             </tbody>
           </table>
         </section>
@@ -208,13 +227,18 @@ export default function CohortReport({
   );
 }
 
-function PaceRow({ label, count, dotClass }) {
+function PaceRow({ label, count, dotClass, note }) {
   if (count === 0) return null;
   return (
     <tr>
       <td>
         <span className={`cc-report-pace-dot ${dotClass}`} />
         {label}
+        {note && (
+          <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
+            {' '}{'\u00B7'} {note}
+          </span>
+        )}
       </td>
       <td>{count}</td>
     </tr>

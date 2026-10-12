@@ -25,7 +25,7 @@ export const PACE_LABELS = {
   [PACE_STATUS.BEHIND]: 'Behind',
   [PACE_STATUS.CRITICAL]: 'Critical',
   [PACE_STATUS.NOT_STARTED]: 'Not Started',
-  [PACE_STATUS.COMPLETED]: 'Completed',
+  [PACE_STATUS.COMPLETED]: 'Fully Prepared',
   [PACE_STATUS.PAST_DUE]: 'Past Due',
   [PACE_STATUS.NO_VERSES]: 'No Verses',
   [PACE_STATUS.FAMILY_TUTORED]: 'Family-tutored',

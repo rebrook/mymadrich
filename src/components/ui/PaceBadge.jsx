@@ -5,7 +5,7 @@ const PACE = {
   on_track:    { label: 'On Track',    color: 'var(--color-pace-on-track)',  icon: 'check' },
   behind:      { label: 'Behind',      color: 'var(--color-pace-behind)',    icon: 'arrowDown' },
   critical:    { label: 'Critical',    color: 'var(--color-pace-critical)',  icon: 'alert' },
-  completed:   { label: 'Completed',   color: 'var(--color-pace-on-track)',  icon: 'check' },
+  completed:   { label: 'Fully Prepared', color: 'var(--color-pace-on-track)', icon: 'check' },
   past_due:    { label: 'Past Due',    color: 'var(--color-pace-critical)',  icon: 'alert' },
   not_started: { label: 'Not Started', color: 'var(--color-pace-neutral)',   icon: null },
   no_verses:   { label: 'No Verses',   color: 'var(--color-pace-neutral)',   icon: null },
