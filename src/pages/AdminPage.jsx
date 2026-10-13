@@ -18,8 +18,8 @@ const TABS = [
 const TAB_DESCRIPTIONS = {
   students: 'Manage student records, assign tutors, and track cohort membership.',
   cohorts: 'Group students by program year. Archive past cohorts to preserve their data.',
-  tutors: 'Tutors appear here after they sign in. Assign the tutor role in the Users tab.',
-  users: 'Manage sign-in accounts, assign roles, and link users to student or guardian records.',
+  tutors: 'Everyone who holds the tutor role appears here, including administrators who also tutor. Give someone the tutor role in the Users tab.',
+  users: 'Manage sign-in accounts, give people one or more roles, and link them to student or guardian records.',
 };
 
 export default function AdminPage() {

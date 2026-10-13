@@ -253,6 +253,14 @@ export function AuthProvider({ children }) {
     return true;
   }, []);
 
+  /**
+   * Re-reads the signed-in person's profile and roles (for example after an administrator changes
+   * their own roles), so the view switcher updates without a reload.
+   */
+  const refreshProfile = useCallback(async () => {
+    if (userIdRef.current) await fetchProfile(userIdRef.current);
+  }, []);
+
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -291,6 +299,7 @@ export function AuthProvider({ children }) {
     roles,
     hasMultipleRoles: roles.length > 1,
     switchRole,
+    refreshProfile,
     loading,
     signInWithGoogle,
     signInWithMagicLink,

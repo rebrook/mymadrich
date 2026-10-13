@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
+import { sortRoles, ROLE_ORDER } from '../../utils/roles';
+import { planRoleChanges, defaultPrimary } from '../../utils/roleChanges';
 
 const ROLE_OPTIONS = ['admin', 'tutor', 'student', 'parent'];
 
@@ -12,17 +14,26 @@ const ROLE_LABELS = {
   parent: 'Parent / Guardian',
 };
 
+const ROLE_HELP = {
+  admin: 'Full access to every screen and setting',
+  tutor: 'Can be assigned students and log sessions',
+  parent: 'Sees the progress of the children linked to them',
+  student: 'Sees their own progress',
+};
+
 // App URL for invite messages: env variable with fallback
 const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
 
 export default function UsersTab() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshProfile } = useAuth();
 
   // Data
   const [profiles, setProfiles] = useState([]);
   const [students, setStudents] = useState([]);
   const [guardians, setGuardians] = useState([]);
   const [invitations, setInvitations] = useState([]);
+  const [rolesByProfile, setRolesByProfile] = useState({}); // profile id -> roles they hold
+  const [studentTutors, setStudentTutors] = useState([]); // every student-tutor assignment
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -49,12 +60,20 @@ export default function UsersTab() {
   // Copy feedback
   const [copiedId, setCopiedId] = useState(null);
 
+  // Manage roles dialog state
+  const [manageId, setManageId] = useState(null); // person being edited
+  const [manageWanted, setManageWanted] = useState([]); // roles ticked in the dialog
+  const [managePrimary, setManagePrimary] = useState(null); // "opens as" choice
+  const [manageSaving, setManageSaving] = useState(false);
+  const [manageError, setManageError] = useState(null);
+  const [roleNotice, setRoleNotice] = useState(''); // confirmation, read aloud to screen readers
+
   // ---- Fetch all data ----
-  async function fetchAll() {
-    setLoading(true);
+  async function fetchAll({ silent = false } = {}) {
+    if (!silent) setLoading(true);
     setError(null);
     try {
-      const [profileRes, studentRes, guardianRes, inviteRes] = await Promise.all([
+      const [profileRes, studentRes, guardianRes, inviteRes, roleRes, assignRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, email, display_name, role, phone, created_at, updated_at')
@@ -69,17 +88,28 @@ export default function UsersTab() {
           .from('pending_invitations')
           .select('*')
           .order('created_at', { ascending: false }),
+        supabase.from('profile_roles').select('profile_id, role'),
+        supabase.from('student_tutors').select('student_id, tutor_id'),
       ]);
 
       if (profileRes.error) throw profileRes.error;
       if (studentRes.error) throw studentRes.error;
       if (guardianRes.error) throw guardianRes.error;
       if (inviteRes.error) throw inviteRes.error;
+      if (roleRes.error) throw roleRes.error;
+      if (assignRes.error) throw assignRes.error;
 
       setProfiles(profileRes.data || []);
       setStudents(studentRes.data || []);
       setGuardians(guardianRes.data || []);
       setInvitations(inviteRes.data || []);
+      const byProfile = {};
+      (roleRes.data || []).forEach((r) => {
+        if (!byProfile[r.profile_id]) byProfile[r.profile_id] = [];
+        byProfile[r.profile_id].push(r.role);
+      });
+      setRolesByProfile(byProfile);
+      setStudentTutors(assignRes.data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -92,11 +122,12 @@ export default function UsersTab() {
   }, []);
 
   // ---- Compute linkage info per profile ----
-  function getLinkageInfo(profile) {
-    switch (profile.role) {
+  function getLinkageInfo(profile, role = profile.role) {
+    switch (role) {
       case 'tutor': {
-        const assignedStudents = students.filter((s) => s.tutor_id === profile.id);
-        const activeCount = assignedStudents.filter((s) => s.status === 'active' || s.status === 'deferred').length;
+        // Every student assigned to this tutor counts (tutors are equal; not only those they were assigned first)
+        const assignedIds = new Set(studentTutors.filter((a) => a.tutor_id === profile.id).map((a) => a.student_id));
+        const activeCount = students.filter((s) => assignedIds.has(s.id) && (s.status === 'active' || s.status === 'deferred')).length;
         if (activeCount === 0) return { text: 'No students assigned', linked: false };
         return { text: `${activeCount} student${activeCount !== 1 ? 's' : ''} assigned`, linked: true };
       }
@@ -136,28 +167,93 @@ export default function UsersTab() {
     });
   }
 
-  // ---- Role change ----
-  async function handleRoleChange(profileId, newRole) {
-    if (profileId === currentUser?.id) return;
+  // ---- Roles a person holds (their primary role if the lookup has nothing) ----
+  function getProfileRoles(profile) {
+    const held = rolesByProfile[profile.id];
+    return sortRoles(held && held.length > 0 ? held : [profile.role]);
+  }
 
+  // Active or deferred students assigned to a person (explains why a tutor role cannot be removed yet)
+  function countActiveAssignments(profileId) {
+    const assignedIds = new Set(studentTutors.filter((a) => a.tutor_id === profileId).map((a) => a.student_id));
+    return students.filter((s) => assignedIds.has(s.id) && (s.status === 'active' || s.status === 'deferred')).length;
+  }
+
+  // ---- Manage roles ----
+  function openManageRoles(profile) {
+    setManageId(profile.id);
+    setManageWanted(getProfileRoles(profile));
+    setManagePrimary(profile.role);
+    setManageError(null);
+  }
+
+  function closeManageRoles() {
+    setManageId(null);
+    setManageWanted([]);
+    setManagePrimary(null);
+    setManageError(null);
+  }
+
+  function toggleManageRole(role) {
+    const next = manageWanted.includes(role)
+      ? manageWanted.filter((r) => r !== role)
+      : sortRoles([...manageWanted, role]);
+    setManageWanted(next);
+    setManagePrimary(defaultPrimary(next, managePrimary));
+  }
+
+  async function handleSaveRoles() {
+    const target = profiles.find((p) => p.id === manageId);
+    if (!target) return;
+
+    const steps = planRoleChanges({
+      held: getProfileRoles(target),
+      wanted: manageWanted,
+      primary: target.role,
+      wantedPrimary: managePrimary,
+    });
+    if (steps.length === 0) {
+      closeManageRoles();
+      return;
+    }
+
+    setManageSaving(true);
+    setManageError(null);
+    const name = target.display_name || target.email;
+    const isSelf = target.id === currentUser?.id;
+    let completed = 0;
     try {
-      const { error: err } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', profileId);
-      if (err) throw err;
-
-      setProfiles((prev) =>
-        prev.map((p) => (p.id === profileId ? { ...p, role: newRole } : p))
-      );
+      for (const step of steps) {
+        const { error: err } = await supabase.rpc(step.rpc, {
+          p_profile_id: target.id,
+          p_role: step.role,
+        });
+        if (err) throw err;
+        completed += 1;
+      }
+      closeManageRoles();
+      setRoleNotice('');
+      setTimeout(() => setRoleNotice(`Roles updated for ${name}.`), 50);
+      await fetchAll({ silent: true });
+      if (isSelf && refreshProfile) await refreshProfile();
     } catch (err) {
-      setError(`Failed to update role: ${err.message}`);
+      // Earlier steps were saved. Reload so the dialog shows the real state, and say what happened.
+      setManageError(
+        completed > 0
+          ? `${completed} of ${steps.length} changes were saved before one stopped: ${err.message}`
+          : err.message
+      );
+      await fetchAll({ silent: true });
+      if (isSelf && completed > 0 && refreshProfile) await refreshProfile();
+    } finally {
+      setManageSaving(false);
     }
   }
 
   // ---- Link account ----
-  function openLinkModal(profile) {
-    setLinkProfile(profile);
+  // `kind` is the record to link: 'student' or 'parent' (a guardian record). The dialog reads it as `role`.
+  function openLinkModal(profile, kind = profile.role) {
+    setLinkProfile({ ...profile, role: kind });
     setSelectedLinkTarget('');
     setLinkError(null);
   }
@@ -200,12 +296,13 @@ export default function UsersTab() {
   // ---- Quick-link suggestion ----
   async function handleQuickLink(profileId, guardianId) {
     try {
-      const profile = profiles.find((p) => p.id === profileId);
-      if (profile && profile.role !== 'parent') {
-        const { error: roleErr } = await supabase
-          .from('profiles')
-          .update({ role: 'parent' })
-          .eq('id', profileId);
+      // Add the parent role (keeping any role they already hold, such as administrator)
+      const held = rolesByProfile[profileId] || [];
+      if (!held.includes('parent')) {
+        const { error: roleErr } = await supabase.rpc('grant_role', {
+          p_profile_id: profileId,
+          p_role: 'parent',
+        });
         if (roleErr) throw roleErr;
       }
 
@@ -223,8 +320,8 @@ export default function UsersTab() {
 
   // ---- Unlink account (with confirm gate) ----
 
-  function openUnlinkModal(profile) {
-    setUnlinkTarget(profile);
+  function openUnlinkModal(profile, kind = profile.role) {
+    setUnlinkTarget({ ...profile, role: kind });
     setUnlinkError(null);
   }
 
@@ -479,6 +576,34 @@ export default function UsersTab() {
 
   const linkTargets = linkProfile ? getLinkTargets() : [];
 
+  // ---- Manage roles dialog (derived values) ----
+  const manageTarget = manageId ? profiles.find((p) => p.id === manageId) : null;
+  const manageHeld = manageTarget ? getProfileRoles(manageTarget) : [];
+  const manageName = manageTarget ? (manageTarget.display_name || manageTarget.email) : '';
+  const manageIsSelf = manageTarget ? manageTarget.id === currentUser?.id : false;
+  const manageActiveStudents = manageTarget ? countActiveAssignments(manageTarget.id) : 0;
+  const manageBlockedByStudents =
+    manageHeld.includes('tutor') && !manageWanted.includes('tutor') && manageActiveStudents > 0;
+  const manageSteps = manageTarget
+    ? planRoleChanges({
+        held: manageHeld,
+        wanted: manageWanted,
+        primary: manageTarget.role,
+        wantedPrimary: managePrimary,
+      })
+    : [];
+  const manageCanSave =
+    Boolean(manageTarget) && manageWanted.length > 0 && manageSteps.length > 0 && !manageBlockedByStudents && !manageSaving;
+
+  const manageFooter = (
+    <>
+      <button className="btn btn-outline" onClick={closeManageRoles}>Cancel</button>
+      <button className="btn btn-primary" onClick={handleSaveRoles} disabled={!manageCanSave}>
+        {manageSaving ? 'Saving...' : 'Save Roles'}
+      </button>
+    </>
+  );
+
   const linkFooter = (
     <>
       <button className="btn btn-outline" onClick={closeLinkModal}>Cancel</button>
@@ -515,6 +640,10 @@ export default function UsersTab() {
             Invite User
           </button>
         </div>
+      </div>
+
+      <div role="status" aria-live="polite">
+        {roleNotice && <div className="alert alert-success">{roleNotice}</div>}
       </div>
 
       {/* Pending Invitations */}
@@ -600,11 +729,17 @@ export default function UsersTab() {
           </thead>
           <tbody>
             {filtered.map((p) => {
-              const linkage = getLinkageInfo(p);
+              const roles = getProfileRoles(p);
+              const multiRole = roles.length > 1;
               const suggestions = getSuggestedLinks(p);
               const isCurrentUser = p.id === currentUser?.id;
-              const canLink = (p.role === 'student' || p.role === 'parent') && !linkage.linked;
-              const canUnlink = (p.role === 'student' || p.role === 'parent') && linkage.linked;
+              // Records this person can be linked to, by the roles they hold
+              const linkKinds = ['student', 'parent'].filter((k) => roles.includes(k));
+              const linkableKinds = linkKinds.filter((k) => !getLinkageInfo(p, k).linked);
+              const unlinkableKinds = linkKinds.filter((k) => getLinkageInfo(p, k).linked);
+              const linkLines = roles
+                .filter((r) => r !== 'admin')
+                .map((r) => ({ role: r, ...getLinkageInfo(p, r) }));
 
               return (
                 <tr key={p.id}>
@@ -618,26 +753,28 @@ export default function UsersTab() {
                   </td>
                   <td data-label="Email">{p.email}</td>
                   <td data-label="Role">
-                    {isCurrentUser ? (
-                      <span className={`badge ${getRoleBadgeClass(p.role)}`}>
-                        {ROLE_LABELS[p.role] || p.role}
-                      </span>
-                    ) : (
-                      <select
-                        className="input users-role-select"
-                        value={p.role}
-                        onChange={(e) => handleRoleChange(p.id, e.target.value)}
-                      >
-                        {ROLE_OPTIONS.map((r) => (
-                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                        ))}
-                      </select>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
+                      {roles.map((r) => (
+                        <span key={r} className={`badge ${getRoleBadgeClass(r)}`}>
+                          {ROLE_LABELS[r] || r}
+                        </span>
+                      ))}
+                    </div>
+                    {multiRole && (
+                      <div className="form-hint">Opens as {ROLE_LABELS[p.role] || p.role}</div>
                     )}
                   </td>
                   <td data-label="Linked To">
-                    <span className={linkage.linked ? '' : 'form-hint'}>
-                      {linkage.text}
-                    </span>
+                    {linkLines.length === 0 && <span className="form-hint">{'\u2014'}</span>}
+                    {linkLines.length === 1 && !multiRole && (
+                      <span className={linkLines[0].linked ? '' : 'form-hint'}>{linkLines[0].text}</span>
+                    )}
+                    {multiRole && linkLines.map((line) => (
+                      <div key={line.role}>
+                        <span className="form-hint">{ROLE_LABELS[line.role]}: </span>
+                        <span className={line.linked ? '' : 'form-hint'}>{line.text}</span>
+                      </div>
+                    ))}
                     {suggestions.length > 0 && (
                       <div className="users-suggestions">
                         {suggestions.map((sg) => (
@@ -659,22 +796,31 @@ export default function UsersTab() {
                   <td data-label="Joined">{formatDate(p.created_at)}</td>
                   <td data-label="Actions">
                     <div className="action-buttons">
-                      {canLink && (
+                      <button
+                        className="btn btn-small btn-outline"
+                        onClick={() => openManageRoles(p)}
+                        aria-label={`Manage roles for ${p.display_name || p.email}`}
+                      >
+                        Manage roles
+                      </button>
+                      {linkableKinds.map((k) => (
                         <button
+                          key={`link-${k}`}
                           className="btn btn-small btn-outline"
-                          onClick={() => openLinkModal(p)}
+                          onClick={() => openLinkModal(p, k)}
                         >
-                          Link
+                          {multiRole ? (k === 'student' ? 'Link student' : 'Link guardian') : 'Link'}
                         </button>
-                      )}
-                      {canUnlink && (
+                      ))}
+                      {unlinkableKinds.map((k) => (
                         <button
+                          key={`unlink-${k}`}
                           className="btn btn-small btn-outline"
-                          onClick={() => openUnlinkModal(p)}
+                          onClick={() => openUnlinkModal(p, k)}
                         >
-                          Unlink
+                          {multiRole ? (k === 'student' ? 'Unlink student' : 'Unlink guardian') : 'Unlink'}
                         </button>
-                      )}
+                      ))}
                     </div>
                   </td>
                 </tr>
@@ -682,6 +828,89 @@ export default function UsersTab() {
             })}
           </tbody>
         </table>
+      )}
+
+      {/* Manage Roles Modal */}
+      {manageTarget && (
+        <Modal
+          title={`Manage Roles: ${manageName}`}
+          onClose={closeManageRoles}
+          footer={manageFooter}
+        >
+          {manageError && <div className="alert alert-error">{manageError}</div>}
+
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
+            Choose every role {manageName} should hold. Changes apply when you save.
+          </p>
+
+          <fieldset style={{ border: 'none', padding: 0, margin: 'var(--space-3) 0 0' }}>
+            <legend className="sr-only">Roles</legend>
+            {ROLE_ORDER.map((r) => {
+              const lockedAdmin = r === 'admin' && manageIsSelf && manageHeld.includes('admin');
+              return (
+                <label
+                  key={r}
+                  className="checkbox-row"
+                  style={{ alignItems: 'flex-start', marginBottom: 'var(--space-2)' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={manageWanted.includes(r)}
+                    disabled={lockedAdmin || manageSaving}
+                    onChange={() => toggleManageRole(r)}
+                  />
+                  <span>
+                    <strong>{ROLE_LABELS[r]}</strong>
+                    <span className="form-hint" style={{ display: 'block' }}>
+                      {lockedAdmin ? 'You cannot remove your own administrator role.' : ROLE_HELP[r]}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+
+          {manageWanted.length === 0 && (
+            <div className="alert alert-error">Choose at least one role.</div>
+          )}
+
+          {manageBlockedByStudents && (
+            <div className="alert alert-error">
+              {manageName} still has {manageActiveStudents} active or deferred
+              student{manageActiveStudents !== 1 ? 's' : ''}. Reassign
+              {manageActiveStudents !== 1 ? ' them' : ' the student'} first, then remove the tutor role.
+            </div>
+          )}
+
+          {manageWanted.length > 1 && (
+            <fieldset style={{ border: 'none', padding: 0, margin: 'var(--space-4) 0 0' }}>
+              <legend className="form-label">Opens as</legend>
+              <span className="form-hint" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
+                Their default view. They can switch from the account menu at any time.
+              </span>
+              {manageWanted.map((r) => (
+                <label key={r} className="checkbox-row">
+                  <input
+                    type="radio"
+                    name="manage-primary-role"
+                    value={r}
+                    checked={managePrimary === r}
+                    disabled={manageSaving}
+                    onChange={() => setManagePrimary(r)}
+                  />
+                  <span>{ROLE_LABELS[r]}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+
+          {((manageWanted.includes('parent') && !manageHeld.includes('parent')) ||
+            (manageWanted.includes('student') && !manageHeld.includes('student'))) && (
+            <p className="form-hint" style={{ marginTop: 'var(--space-3)' }}>
+              After saving, use Link on this row to connect {manageName} to their guardian or student record.
+            </p>
+          )}
+        </Modal>
       )}
 
       {/* Link Account Modal */}
