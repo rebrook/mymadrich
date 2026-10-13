@@ -12,8 +12,8 @@ import { ROLES } from './constants';
  * result is exactly what they saw before.
  */
 
-/** Benchmark meeting statuses every view except admin may see (matches the database rule). */
-export const NON_ADMIN_BENCHMARK_STATUSES = ['scheduled', 'completed'];
+/** Benchmark meeting statuses the family views (parent and student) may see (matches the database rule). */
+export const FAMILY_BENCHMARK_STATUSES = ['scheduled', 'completed'];
 
 /**
  * Returns the ids of the students the active view may see, or null for "no limit" (admin).
@@ -52,9 +52,11 @@ export async function fetchScopedStudentIds(role, userId, client = supabase) {
 }
 
 /**
- * Adds the benchmark visibility rule to a benchmark_meetings query: every view
- * except admin sees only scheduled and completed meetings (pending ones are staff-only).
+ * Adds the benchmark visibility rule to a benchmark_meetings query. Staff views (admin, and every
+ * tutor assigned to the student) see every row, pending ones included. The family views (parent and
+ * student) see only scheduled and completed meetings. Any other view is treated like a family view.
  */
 export function limitBenchmarksToVisible(query, role) {
-  return role === ROLES.ADMIN ? query : query.in('status', NON_ADMIN_BENCHMARK_STATUSES);
+  const isStaffView = role === ROLES.ADMIN || role === ROLES.TUTOR;
+  return isStaffView ? query : query.in('status', FAMILY_BENCHMARK_STATUSES);
 }
