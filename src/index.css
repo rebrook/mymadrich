@@ -5940,38 +5940,6 @@ select.input {
   outline-offset: 2px;
 }
 
-/* Warning variant: partial bulk failure. Light surface with warning tokens
-   (text on bg is about 6.6:1); Undo/Dismiss recolored for a light background. */
-.bulk-toast-warning {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning);
-}
-
-.bulk-toast-warning .bulk-toast-undo {
-  color: var(--color-warning);
-  border-color: var(--color-warning);
-}
-
-.bulk-toast-warning .bulk-toast-undo:hover {
-  background: rgba(133, 77, 14, 0.1);
-  border-color: var(--color-warning);
-}
-
-.bulk-toast-warning .bulk-toast-dismiss {
-  color: var(--color-warning);
-}
-
-.bulk-toast-warning .bulk-toast-dismiss:hover {
-  color: var(--color-text);
-}
-
-.bulk-toast-warning .bulk-toast-undo:focus-visible,
-.bulk-toast-warning .bulk-toast-dismiss:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
 /* Mobile batch bar: sit above bottom nav */
 @media (max-width: 768px) {
   .bulk-batch-bar {
@@ -6102,9 +6070,8 @@ select.input {
   top: 0;
   z-index: 20;
   display: flex;
-  flex-wrap: wrap;           /* tally + Save drop to a second row when they do not fit */
   align-items: center;
-  gap: var(--space-3) var(--space-4);
+  gap: var(--space-4);
   padding: 20px 24px;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -6169,25 +6136,6 @@ select.input {
   max-width: 280px;
 }
 
-/* Desktop header wraps instead of overflowing. The student area keeps its
-   natural size (so the date stays beside the name) with a floor equal to the
-   switcher's minimum, so the switcher can never spill over the date. The date
-   never shrinks. Tally + Save sit right-aligned and drop to a second row only
-   when they genuinely do not fit; no breakpoint to maintain.
-   Scoped to .sticky-form-header: the mobile info card is a COLUMN flex box. */
-.sticky-form-header .sfh-student {
-  min-width: 180px;
-}
-
-.sticky-form-header .sfh-date {
-  flex: 0 0 auto;
-}
-
-.sticky-form-header .sfh-actions {
-  flex: 0 0 auto;
-  margin-left: auto;
-}
-
 /* Date area */
 .sfh-date {
   display: flex;
@@ -6207,7 +6155,6 @@ select.input {
   font-size: var(--text-sm);
   color: var(--color-text);
   cursor: pointer;
-  white-space: nowrap;
   transition: border-color 0.15s, background-color 0.15s;
 }
 
@@ -6246,7 +6193,7 @@ select.input {
 }
 
 .sfh-save-wrap {
-  position: relative;      /* anchor the save message */
+  position: relative;      /* anchor the hint */
   display: flex;
   align-items: center;     /* wrap height == button height */
 }
@@ -6256,26 +6203,13 @@ select.input {
   min-height: 40px;
 }
 
-/* Save feedback (validation or failed save). Solid background so it stays
-   readable over the page; error text on error bg is about 5.0:1. */
-.sfh-save-message {
+.sfh-save-reason {
   position: absolute;      /* out of flow, so the row stays centered */
-  top: calc(100% + var(--space-6));  /* hangs just below the sticky header */
+  top: calc(100% + 2px);
   right: 0;
-  z-index: 1;
-  width: max-content;
-  max-width: 320px;
-  padding: var(--space-2) var(--space-3);
-  background-color: var(--color-error-bg);
-  color: var(--color-error);
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  font-size: var(--text-sm);
-  line-height: var(--leading-body);
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere; /* long unbroken tokens (constraint names, IDs) must wrap */
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }
 
 /* ---- Rating Pills (v2 6.11) ---- */
@@ -6826,35 +6760,16 @@ select.input {
 
   .sfh-mobile-bar .sfh-save-btn {
     min-width: 100px;
-    min-height: 44px;        /* touch target */
   }
 
-  /* Save never shrinks; the tally gives way instead: one line, ellipsis. The
-     text reads verses, homework, next session, so the next-session date is the
-     first thing cut. The full text stays in the DOM and in the aria-label. */
-  .sfh-mobile-bar .sfh-tally {
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Keep the mobile save bar height unchanged: the save message floats just
-     above the fixed bar (which already sits above the bottom nav) and anchors
-     to the bar, not the button wrapper. */
+  /* Keep the mobile save bar exactly as before */
   .sfh-mobile-bar .sfh-save-wrap {
-    flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-end;
-    position: static;
   }
-  .sfh-mobile-bar .sfh-save-message {
-    top: auto;
-    bottom: calc(100% + var(--space-2));
-    left: var(--space-4);
-    right: var(--space-4);
-    width: auto;
-    max-width: none;
+  .sfh-mobile-bar .sfh-save-reason {
+    position: static;
+    margin-top: 2px;
   }
 
   /* Add padding to page bottom so content doesn't hide behind fixed bar */
@@ -6874,14 +6789,6 @@ select.input {
     min-width: 0;
     max-width: 100%;
     width: 100%;
-  }
-}
-
-/* Touch devices (any width, e.g. a tablet in landscape): 44px date button.
-   A desktop with a mouse keeps the compact header. */
-@media (pointer: coarse) {
-  .sfh-date-trigger {
-    min-height: 44px;
   }
 }
 
@@ -13060,4 +12967,144 @@ select.input {
   .dvar-family-line {
     padding: var(--space-2);
   }
+}
+
+
+/* ==========================================================================
+   VIEW AS (people who hold more than one role)
+   ========================================================================== */
+
+/* Desktop: current view, always visible in the topbar */
+.view-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  margin-right: var(--space-3);
+  border-radius: 999px;
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+/* Desktop: "View as" items inside the sidebar account menu */
+.sidebar-flyout-label {
+  padding: 8px 14px 4px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Keeps the longer role label ("Parent / Guardian") on one line in the narrow sidebar menu */
+.sidebar-flyout-radio {
+  padding-left: 10px;
+  padding-right: 10px;
+  gap: 8px;
+  text-align: left;
+}
+
+.sidebar-flyout-check {
+  flex: none;
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+}
+
+.sidebar-flyout-divider {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--color-border);
+}
+
+/* Mobile: avatar + current view opens the "View as" menu */
+.view-menu {
+  position: relative;
+}
+
+.view-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 2px 6px 2px 2px;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+
+.view-menu-trigger .mobile-header-avatar {
+  cursor: pointer;
+}
+
+.view-menu-trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.view-menu-current {
+  font-size: 0.78rem;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.view-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 220px;
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 30;
+}
+
+.view-menu-heading {
+  margin: 0;
+  padding: 8px 12px 4px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.view-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.view-menu-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.view-menu-check {
+  flex: none;
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--color-primary);
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { ROLE_LABELS } from '../../utils/constants';
+import { ROLE_ORDER } from '../../utils/roles';
 
 /** How long to wait for `role` to arrive after `loading` clears before
  *  treating profile sync as failed (ms). */
@@ -12,9 +14,12 @@ const ROLE_SYNC_GRACE_PERIOD = 8_000;
  * Usage:
  *   <Route element={<ProtectedRoute />}> ... child routes ... </Route>
  *   <Route element={<ProtectedRoute allowedRoles={['admin', 'tutor']} />}> ... </Route>
+ *
+ * `role` is the person's active view. If they hold an allowed role but are
+ * currently viewing as another, they get an offer to switch instead of a dead end.
  */
 export default function ProtectedRoute({ allowedRoles, children }) {
-  const { user, role, loading, signOut } = useAuth();
+  const { user, role, roles, switchRole, loading, signOut } = useAuth();
   const [roleTimedOut, setRoleTimedOut] = useState(false);
 
   // Give a short grace period for `role` to arrive after `loading` clears
@@ -83,10 +88,49 @@ export default function ProtectedRoute({ allowedRoles, children }) {
     );
   }
 
-  // Authenticated but wrong role
+  // Authenticated but this view isn't allowed here
   if (allowedRoles && !allowedRoles.includes(role)) {
+    // The person may hold an allowed role in another view: offer to switch.
+    const offered = ROLE_ORDER.find((r) => allowedRoles.includes(r) && roles.includes(r));
+    if (offered) {
+      return (
+        <SwitchViewPrompt
+          currentRole={role}
+          offeredRole={offered}
+          onSwitch={() => switchRole(offered)}
+        />
+      );
+    }
     return <Navigate to="/unauthorized" replace />;
   }
 
   return children;
+}
+
+function SwitchViewPrompt({ currentRole, offeredRole, onSwitch }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="auth-error-screen">
+      <div className="auth-error-card">
+        <h2 className="auth-error-title">Switch view to open this page</h2>
+        <p className="auth-error-message">
+          You are viewing as {ROLE_LABELS[currentRole]}. This page is available in
+          the {ROLE_LABELS[offeredRole]} view.
+        </p>
+        <div className="auth-error-actions">
+          <button type="button" className="auth-error-retry" onClick={onSwitch}>
+            Switch to {ROLE_LABELS[offeredRole]} view
+          </button>
+          <button
+            type="button"
+            className="auth-error-signout"
+            onClick={() => navigate('/dashboard')}
+          >
+            Back to dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -13,9 +13,10 @@ import emblemGold from '../../assets/chizuk-emblem-gold.png';
  *   - Gold Chizuk emblem + "MyMadrich" wordmark (Frank Ruhl Libre)
  *   - Nav links: idle lavender, hover white wash, active white + gold left bar
  *   - User footer divided by a hairline, with sign-out flyout
+ *   - For people with more than one role, the flyout also has a "View as" switch
  *   - Faint gold corner ring (CSS ::after, decorative)
  */
-export default function SidebarNav({ navItems, profile, role, signOut }) {
+export default function SidebarNav({ navItems, profile, role, roles = [], onSwitchRole, signOut }) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const flyoutRef = useRef(null);
   const triggerRef = useRef(null);
@@ -57,6 +58,29 @@ export default function SidebarNav({ navItems, profile, role, signOut }) {
     setFlyoutOpen(false);
     signOut();
   }
+
+  function handleSwitch(nextRole) {
+    setFlyoutOpen(false);
+    if (onSwitchRole) onSwitchRole(nextRole);
+  }
+
+  // Menu keyboard support: Up/Down move between the items in the flyout.
+  function handleFlyoutKeyDown(e) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = flyoutRef.current ? flyoutRef.current.querySelectorAll('[role^="menuitem"]') : [];
+    if (items.length === 0) return;
+    e.preventDefault();
+    const idx = Array.from(items).indexOf(document.activeElement);
+    const next = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+    items[next].focus();
+  }
+
+  // With a "View as" choice, move focus into the menu when it opens (current view first).
+  useEffect(() => {
+    if (!flyoutOpen || roles.length < 2 || !flyoutRef.current) return;
+    const current = flyoutRef.current.querySelector('[aria-checked="true"]');
+    if (current) current.focus();
+  }, [flyoutOpen, roles.length]);
 
   return (
     <aside className="sidebar-nav" aria-label="Main navigation">
@@ -107,7 +131,33 @@ export default function SidebarNav({ navItems, profile, role, signOut }) {
         </button>
 
         {flyoutOpen && (
-          <div className="sidebar-flyout" ref={flyoutRef} role="menu">
+          <div
+            className="sidebar-flyout"
+            ref={flyoutRef}
+            role="menu"
+            onKeyDown={handleFlyoutKeyDown}
+          >
+            {roles.length > 1 && (
+              <>
+                <div className="sidebar-flyout-label" aria-hidden="true">View as</div>
+                {roles.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className="sidebar-flyout-btn sidebar-flyout-radio"
+                    role="menuitemradio"
+                    aria-checked={r === role}
+                    onClick={() => handleSwitch(r)}
+                  >
+                    <span className="sidebar-flyout-check" aria-hidden="true">
+                      {r === role ? '\u2713' : ''}
+                    </span>
+                    {ROLE_LABELS[r]}
+                  </button>
+                ))}
+                <div className="sidebar-flyout-divider" role="separator" />
+              </>
+            )}
             <button
               className="sidebar-flyout-btn"
               onClick={handleSignOut}

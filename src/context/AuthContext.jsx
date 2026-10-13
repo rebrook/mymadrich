@@ -1,15 +1,60 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { activeRoleKey, resolveActiveRole, sortRoles } from '../utils/roles';
 
 const AuthContext = createContext(null);
 
 /** Auth bootstrap safety timeout (ms). */
 const AUTH_INIT_TIMEOUT = 10_000;
 
+/** How long to wait for the person's roles before falling back to their profile role (ms). */
+const ROLES_TIMEOUT = 4_000;
+
+/** Rejects if `promise` has not settled within `ms`. */
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timed out')), ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+function readStored(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // localStorage unavailable; the view simply won't be remembered
+  }
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Roles the person holds, and the one they are viewing as right now.
+  // Refs mirror the state so the long-lived auth listeners below always see current values.
+  const [roles, setRoles] = useState([]);
+  const [activeRole, setActiveRole] = useState(null);
+  const rolesRef = useRef([]);
+  const activeRef = useRef(null);
+  const userIdRef = useRef(null);
 
   // Guard: whichever of getSession/.then or onAuthStateChange(INITIAL_SESSION)
   // fires first handles the initial profile fetch; the other becomes a no-op.
@@ -62,6 +107,7 @@ export function AuthProvider({ children }) {
           await fetchProfile(s.user.id);
         } else {
           setProfile(null);
+          clearRoles();
           setLoading(false);
         }
       }
@@ -72,6 +118,14 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  function clearRoles() {
+    rolesRef.current = [];
+    activeRef.current = null;
+    userIdRef.current = null;
+    setRoles([]);
+    setActiveRole(null);
+  }
 
   async function fetchProfile(userId) {
     try {
@@ -86,6 +140,12 @@ export function AuthProvider({ children }) {
       // Fix 4 — Set profile immediately so the app renders without waiting
       // on the invitation RPC. Process the invitation in the background.
       setProfile(data);
+
+      // Roles are loaded before `loading` clears so the very first render already
+      // knows the active view (no flash of the wrong view). This never throws:
+      // on any problem it falls back to the single role on the profile.
+      await loadRoles(userId, data.role);
+
       processInvitationInBackground(userId);
     } catch (err) {
       console.error('Error fetching profile:', err.message);
@@ -111,8 +171,52 @@ export function AuthProvider({ children }) {
   }
 
   /**
+   * Loads the roles the person holds and decides which view to use.
+   * Never throws. If the roles can't be loaded it keeps the last known list,
+   * or falls back to the single role on the profile, so a roles problem can
+   * never lock anyone out of the app.
+   */
+  async function loadRoles(userId, primaryRole) {
+    // A different person signing in on the same tab starts clean.
+    if (userIdRef.current && userIdRef.current !== userId) {
+      rolesRef.current = [];
+      activeRef.current = null;
+    }
+    userIdRef.current = userId;
+
+    let granted = null;
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from('profile_roles').select('role').eq('profile_id', userId),
+        ROLES_TIMEOUT,
+      );
+      if (error) throw error;
+      granted = (data || []).map((r) => r.role);
+    } catch (err) {
+      console.warn('Could not load roles; falling back to the profile role:', err.message);
+    }
+
+    let list = sortRoles(granted);
+    if (list.length === 0) {
+      list = rolesRef.current.length > 0 ? rolesRef.current : sortRoles([primaryRole]);
+    }
+
+    const next = resolveActiveRole({
+      roles: list,
+      current: activeRef.current,
+      stored: readStored(activeRoleKey(userId)),
+      primary: primaryRole,
+    });
+
+    rolesRef.current = list;
+    activeRef.current = next;
+    setRoles(list);
+    setActiveRole(next);
+  }
+
+  /**
    * Non-blocking invitation processing. If a pending invitation is claimed,
-   * the profile is silently re-fetched and state is updated in-place.
+   * the profile and roles are silently re-fetched and state is updated in-place.
    */
   async function processInvitationInBackground(userId) {
     try {
@@ -126,6 +230,7 @@ export function AuthProvider({ children }) {
           .single();
         if (!refetchErr && updatedProfile) {
           setProfile(updatedProfile);
+          await loadRoles(userId, updatedProfile.role);
         }
       }
     } catch (invErr) {
@@ -133,6 +238,20 @@ export function AuthProvider({ children }) {
       console.warn('Invitation check skipped:', invErr.message);
     }
   }
+
+  /**
+   * Switches the view for people who hold more than one role.
+   * Returns true if the switch happened, false if the person doesn't hold that role.
+   */
+  const switchRole = useCallback((nextRole) => {
+    if (!rolesRef.current.includes(nextRole)) return false;
+    activeRef.current = nextRole;
+    setActiveRole(nextRole);
+    if (userIdRef.current) {
+      writeStored(activeRoleKey(userIdRef.current), nextRole);
+    }
+    return true;
+  }, []);
 
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -159,13 +278,19 @@ export function AuthProvider({ children }) {
     if (error) console.error('Sign-out error:', error.message);
     setSession(null);
     setProfile(null);
+    clearRoles();
   }
 
   const value = {
     session,
     user: session?.user ?? null,
     profile,
-    role: profile?.role ?? null,
+    // The view the person is using now. Every existing `role` check in the app
+    // reads this, so it behaves exactly like a single role for any one view.
+    role: activeRole ?? profile?.role ?? null,
+    roles,
+    hasMultipleRoles: roles.length > 1,
+    switchRole,
     loading,
     signInWithGoogle,
     signInWithMagicLink,

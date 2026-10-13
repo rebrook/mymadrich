@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES, ROLE_LABELS } from '../../utils/constants';
 import SidebarNav from './SidebarNav';
@@ -17,15 +18,33 @@ import Footer from './Footer';
  *
  * Content width containers per the design system applied per route.
  * Footer scrolls with content; on mobile it sits above the bottom tab bar.
+ *
+ * People who hold more than one role (for example an admin who is also a
+ * parent) see a "View as" switch: in the sidebar account menu on desktop,
+ * and in the header on mobile. `role` is the view in use, so everything
+ * below keeps working for whichever view is active.
  */
 export default function AppShell() {
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, roles, hasMultipleRoles, switchRole, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [viewMessage, setViewMessage] = useState('');
 
   const navItems = getNavItems(role);
   const initial = profile?.display_name?.charAt(0)?.toUpperCase() || '?';
   const contentWidthClass = getContentWidthClass(location.pathname);
   const { title, subtitle } = getPageMeta(location.pathname, role);
+
+  function handleSwitchRole(nextRole) {
+    if (nextRole === role) return;
+    if (switchRole(nextRole)) {
+      // Land on the dashboard of the new view. The page below is remounted
+      // (see the key on <Outlet />) so no data from the old view lingers.
+      navigate('/dashboard');
+      setViewMessage('');
+      setTimeout(() => setViewMessage(`Now viewing as ${ROLE_LABELS[nextRole]}.`), 50);
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -33,11 +52,15 @@ export default function AppShell() {
         Skip to main content
       </a>
 
+      <div className="sr-only" role="status" aria-live="polite">{viewMessage}</div>
+
       {/* Desktop sidebar (hidden < 1024px via CSS) */}
       <SidebarNav
         navItems={navItems}
         profile={profile}
         role={role}
+        roles={roles}
+        onSwitchRole={handleSwitchRole}
         signOut={signOut}
       />
 
@@ -49,6 +72,9 @@ export default function AppShell() {
             {subtitle && <span className="topbar-subtitle">{subtitle}</span>}
           </div>
           <div className="topbar-right">
+            {hasMultipleRoles && (
+              <span className="view-badge">Viewing as {ROLE_LABELS[role]}</span>
+            )}
             <button onClick={signOut} className="btn-ghost" type="button">
               <SignOutSmallIcon />
               Sign out
@@ -60,12 +86,22 @@ export default function AppShell() {
         <header className="mobile-header">
           <span className="mobile-header-title">{title}</span>
           <div className="mobile-header-right">
-            <span
-              className="mobile-header-avatar"
-              aria-label={profile?.display_name}
-            >
-              {initial}
-            </span>
+            {hasMultipleRoles ? (
+              <MobileViewMenu
+                initial={initial}
+                displayName={profile?.display_name}
+                roles={roles}
+                activeRole={role}
+                onSwitch={handleSwitchRole}
+              />
+            ) : (
+              <span
+                className="mobile-header-avatar"
+                aria-label={profile?.display_name}
+              >
+                {initial}
+              </span>
+            )}
             <button
               onClick={signOut}
               className="mobile-header-signout"
@@ -78,7 +114,8 @@ export default function AppShell() {
         </header>
 
         <main className={`app-main ${contentWidthClass}`} id="main-content">
-          <Outlet />
+          {/* key={role}: switching view remounts the page so nothing from the old view lingers */}
+          <Outlet key={role} />
           <Footer />
         </main>
       </div>
@@ -99,6 +136,102 @@ export default function AppShell() {
           </NavLink>
         ))}
       </nav>
+    </div>
+  );
+}
+
+
+/* ==========================================================================
+   Mobile "View as" menu (only rendered for people with more than one role)
+   ========================================================================== */
+
+function MobileViewMenu({ initial, displayName, roles, activeRole, onSwitch }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
+
+  // Close on outside tap or Escape; Escape returns focus to the trigger.
+  // The ref covers the trigger AND the panel, so tapping an item isn't "outside".
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function handleOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    function handleKey(e) {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        if (triggerRef.current) triggerRef.current.focus();
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  // Move focus to the current view when the menu opens.
+  useEffect(() => {
+    if (!open || !panelRef.current) return;
+    const current = panelRef.current.querySelector('[aria-checked="true"]');
+    if (current) current.focus();
+  }, [open]);
+
+  function handlePanelKeyDown(e) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = panelRef.current ? panelRef.current.querySelectorAll('[role="menuitemradio"]') : [];
+    if (items.length === 0) return;
+    e.preventDefault();
+    const idx = Array.from(items).indexOf(document.activeElement);
+    const next = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+    items[next].focus();
+  }
+
+  return (
+    <div className="view-menu" ref={wrapRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="view-menu-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${displayName || 'Account'}. Viewing as ${ROLE_LABELS[activeRole]}. Change view`}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className="mobile-header-avatar" aria-hidden="true">{initial}</span>
+        <span className="view-menu-current">{ROLE_LABELS[activeRole]}</span>
+      </button>
+
+      {open && (
+        <div
+          className="view-menu-panel"
+          role="menu"
+          aria-label="View as"
+          ref={panelRef}
+          onKeyDown={handlePanelKeyDown}
+        >
+          <p className="view-menu-heading" aria-hidden="true">View as</p>
+          {roles.map((r) => (
+            <button
+              key={r}
+              type="button"
+              role="menuitemradio"
+              aria-checked={r === activeRole}
+              className="view-menu-item"
+              onClick={() => {
+                setOpen(false);
+                onSwitch(r);
+              }}
+            >
+              <span className="view-menu-check" aria-hidden="true">{r === activeRole ? '\u2713' : ''}</span>
+              {ROLE_LABELS[r]}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
