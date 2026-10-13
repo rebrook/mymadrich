@@ -21,6 +21,7 @@ import {
 import { tutorName, mitzvahLabel, mitzvahPronoun } from '../utils/people';
 import { formatSessionTime } from '../utils/datetime';
 import usePageTitle from '../hooks/usePageTitle';
+import { limitBenchmarksToVisible } from '../utils/scope';
 import MenorahReadiness from '../components/domain/MenorahReadiness';
 import StudentSwitcher from '../components/ui/StudentSwitcher';
 import { emblemGold } from '../assets/emblem';
@@ -584,11 +585,15 @@ export default function RoadToBimah() {
           firstSessionDate,
         });
 
-        // Benchmark meetings (RLS filters: non-admin only sees scheduled/completed)
-        const { data: benchmarkData, error: bmErr } = await supabase
-          .from('benchmark_meetings')
-          .select('*')
-          .eq('student_id', targetStudentId);
+        // Benchmark meetings: only the admin view sees pending ones; every other view sees
+        // scheduled and completed (the database alone would show an admin-and-parent both).
+        const { data: benchmarkData, error: bmErr } = await limitBenchmarksToVisible(
+          supabase
+            .from('benchmark_meetings')
+            .select('*')
+            .eq('student_id', targetStudentId),
+          role,
+        );
         if (bmErr) throw bmErr;
 
         setStudent(studentData);

@@ -15,6 +15,7 @@ import { formatDateCompact, formatDateShort, formatDayDate, formatSessionTime, f
 import { buildNudgeTutorMailto, buildCaseloadNudgeMailto, resolvePrimaryGuardianContact } from '../utils/mailto';
 import { masteryCounts, masteryCountsByType, masteryPercent, formatMasterySummary } from '../utils/mastery';
 import usePageTitle from '../hooks/usePageTitle';
+import { fetchScopedStudentIds, limitBenchmarksToVisible } from '../utils/scope';
 import { useCohorts } from '../hooks/useCohorts';
 import { useStudents, fetchTutors } from '../hooks/useStudents';
 import HelpTip from '../components/ui/HelpTip';
@@ -253,11 +254,19 @@ export default function Dashboard() {
   }, [bulkToast]);
 
 
-  // ---- Load students (RLS filters by role) ----
+  // ---- Load students (limited to what the active view may see) ----
   const loadStudents = useCallback(async () => {
     setLoadingStudents(true);
     try {
-      const { data, error: err } = await supabase
+      // The database combines everything a person may see across ALL their roles, so ask it only for
+      // the students this view may see (a parent view must not list a tutor's or admin's students).
+      const scopeIds = await fetchScopedStudentIds(role, user.id);
+      if (scopeIds && scopeIds.length === 0) {
+        setStudents([]);
+        return;
+      }
+
+      let studentQuery = supabase
         .from('students')
         .select(`
           id, first_name, last_name, hebrew_name, mitzvah_date, mitzvah_type, tutor_id,
@@ -270,6 +279,8 @@ export default function Dashboard() {
         `)
         .in('status', ['active', 'deferred'])
         .order('last_name');
+      if (scopeIds) studentQuery = studentQuery.in('id', scopeIds);
+      const { data, error: err } = await studentQuery;
       if (err) throw err;
 
       setStudents(data || []);
@@ -603,11 +614,15 @@ export default function Dashboard() {
         const elemCounts = masteryCounts(elementStatuses || []);
         const elementsSummary = calculateElementsSummary(elemCounts.mastered, elemCounts.mastered + elemCounts.inProgress, elemCounts.total);
 
-        // Benchmark meetings (RLS filters: non-admin sees only scheduled/completed)
-        const { data: benchmarkData, error: bmErr } = await supabase
-          .from('benchmark_meetings')
-          .select('*')
-          .eq('student_id', selectedStudentId);
+        // Benchmark meetings: only the admin view sees pending ones; every other view sees
+        // scheduled and completed (the database alone would show an admin-and-parent both).
+        const { data: benchmarkData, error: bmErr } = await limitBenchmarksToVisible(
+          supabase
+            .from('benchmark_meetings')
+            .select('*')
+            .eq('student_id', selectedStudentId),
+          role,
+        );
         if (bmErr) throw bmErr;
 
         setDashData({

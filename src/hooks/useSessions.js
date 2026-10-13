@@ -17,6 +17,9 @@ import { supabase } from '../lib/supabase';
  * @param {string|null} opts.dateFrom - ISO date string for range start (inclusive), or null
  * @param {string|null} opts.dateTo - ISO date string for range end (inclusive), or null
  * @param {boolean} opts.allStudents - When true, fetch across all students (RLS scopes by role)
+ * @param {string[]|null} opts.scopeStudentIds - The students the active view may see. An array limits the
+ *        list (and refuses any student outside it); null or omitted means no limit (admin).
+ * @param {boolean} opts.enabled - When false, nothing is fetched yet (the page is still working out scope)
  * @param {number} opts.initialPageSize - Initial number of sessions to display (default 10)
  * @returns {object} sessions, controls, detail data, loading/error state
  */
@@ -25,6 +28,8 @@ export function useSessions({
   dateFrom = null,
   dateTo = null,
   allStudents = false,
+  scopeStudentIds = null,
+  enabled = true,
   initialPageSize = 10,
 } = {}) {
   const [sessions, setSessions] = useState([]);
@@ -43,6 +48,9 @@ export function useSessions({
   const prevStudentId = useRef(studentId);
   const prevAllStudents = useRef(allStudents);
 
+  // A stable key for the scope, so a new array with the same ids does not trigger a refetch
+  const scopeKey = Array.isArray(scopeStudentIds) ? scopeStudentIds.join(',') : '*';
+
   // ---- Shared filter builder ----
 
   /**
@@ -54,6 +62,10 @@ export function useSessions({
     // Student scope: in single-student mode, filter by studentId
     if (!allStudents && studentId) {
       query = query.eq('student_id', studentId);
+    }
+    // Only the students the active view may see (all-students mode and single-student mode alike)
+    if (Array.isArray(scopeStudentIds)) {
+      query = query.in('student_id', scopeStudentIds);
     }
     // Date range (server-side)
     if (dateFrom) {
@@ -68,6 +80,23 @@ export function useSessions({
   // ---- Fetch session list ----
 
   const fetchSessions = useCallback(async (limit) => {
+    // Held until the page knows which students this view may see
+    if (!enabled) {
+      setSessions([]);
+      setTotalCount(0);
+      return;
+    }
+
+    // A view limited to certain students never loads anyone else's sessions
+    if (Array.isArray(scopeStudentIds)) {
+      const outsideScope = !allStudents && studentId && !scopeStudentIds.includes(studentId);
+      if (scopeStudentIds.length === 0 || outsideScope) {
+        setSessions([]);
+        setTotalCount(0);
+        return;
+      }
+    }
+
     // In single-student mode, require a studentId
     if (!allStudents && !studentId) {
       setSessions([]);
@@ -158,7 +187,7 @@ export function useSessions({
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, pageSize, dateFrom, dateTo, allStudents]);
+  }, [studentId, pageSize, dateFrom, dateTo, allStudents, scopeKey, enabled]);
 
   // Re-fetch when any filter dimension changes
   useEffect(() => {
@@ -184,6 +213,7 @@ export function useSessions({
   // ---- Load more ----
 
   async function loadMore() {
+    if (!enabled) return;
     if (!allStudents && !studentId) return;
 
     const currentCount = sessions.length;
@@ -368,7 +398,8 @@ export function useSessions({
     sessions,
     totalCount,
     hasMore,
-    loading,
+    // Still loading while the page works out which students this view may see
+    loading: loading || !enabled,
     error,
 
     // Page size controls

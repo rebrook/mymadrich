@@ -14,6 +14,7 @@ import {
   QUALITY_LABEL_TORAH_MASTERY,
 } from '../utils/constants';
 import { useSessions } from '../hooks/useSessions';
+import { fetchScopedStudentIds } from '../utils/scope';
 import usePageTitle from '../hooks/usePageTitle';
 import { formatDateCompact, formatSessionTime, formatSessionTimeRange, getTodayDateString, addDaysToDateString } from '../utils/datetime';
 import { tutorName } from '../utils/people';
@@ -179,6 +180,11 @@ export default function SessionHistoryPage() {
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [studentError, setStudentError] = useState(null);
 
+  // The students the active view may see (null = no limit, as for an admin). Sessions are held
+  // back until this is known so nothing from the person's other roles appears, even briefly.
+  const [scopeStudentIds, setScopeStudentIds] = useState(null);
+  const [scopeLoaded, setScopeLoaded] = useState(false);
+
   // ---- Filter state (persisted to localStorage) ----
   const persisted = useMemo(() => loadPersistedFilters(), []);
   // An explicit ?student= deep link (e.g. clicking a session from a student's
@@ -244,6 +250,8 @@ export default function SessionHistoryPage() {
     dateFrom: dateFrom || null,
     dateTo: dateTo || null,
     allStudents,
+    scopeStudentIds,
+    enabled: scopeLoaded,
   });
 
   // ---- Deep-link: auto-expand + scroll to a specific session (?session=) ----
@@ -285,12 +293,26 @@ export default function SessionHistoryPage() {
     async function loadStudents() {
       setLoadingStudents(true);
       setStudentError(null);
+      let scopeResolved = false;
       try {
-        const { data, error: err } = await supabase
+        // Limit this page to the students the active view may see. The database alone would also
+        // return what the person can see through their other roles.
+        const scopeIds = await fetchScopedStudentIds(role, user.id);
+        setScopeStudentIds(scopeIds);
+        setScopeLoaded(true);
+        scopeResolved = true;
+        if (scopeIds && scopeIds.length === 0) {
+          setStudents([]);
+          return;
+        }
+
+        let studentQuery = supabase
           .from('students')
           .select('id, first_name, last_name, tutor_id, mitzvah_date, tutor:profiles!tutor_id(display_name), cohort:cohorts!cohort_id(id, start_date), student_guardians(name, is_primary)')
           .in('status', ['active', 'deferred', 'completed'])
           .order('last_name');
+        if (scopeIds) studentQuery = studentQuery.in('id', scopeIds);
+        const { data, error: err } = await studentQuery;
         if (err) throw err;
 
         setStudents(data || []);
@@ -326,6 +348,11 @@ export default function SessionHistoryPage() {
           }
         }
       } catch (err) {
+        // If scope itself could not be worked out, show no sessions (and the error) rather than everything
+        if (!scopeResolved) {
+          setScopeStudentIds([]);
+          setScopeLoaded(true);
+        }
         setStudentError(err.message);
       } finally {
         setLoadingStudents(false);
