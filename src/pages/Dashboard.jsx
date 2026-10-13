@@ -22,6 +22,7 @@ import HelpTip from '../components/ui/HelpTip';
 import PaceBadge from '../components/ui/PaceBadge';
 import AlertsPanel from '../components/ui/AlertsPanel';
 import StudentSwitcher from '../components/ui/StudentSwitcher';
+import MyChildrenCard from '../components/ui/MyChildrenCard';
 import HeroHeader from '../components/ui/HeroHeader';
 import CeremonialHero from '../components/ui/CeremonialHero';
 import CohortSummaryHero from '../components/ui/CohortSummaryHero';
@@ -116,7 +117,7 @@ function getDaysToMitzvah(mitzvahDate) {
 // ---- Main Dashboard ----
 
 export default function Dashboard() {
-  const { user, role } = useAuth();
+  const { user, role, roles, switchRole } = useAuth();
   const navigate = useNavigate();
   usePageTitle('Dashboard');
 
@@ -1962,6 +1963,31 @@ export default function Dashboard() {
     );
   }
 
+  // ---- "My children": shortcuts to the signed-in person's own children (admin and tutor views) ----
+
+  // Switch to the parent view with this child selected (the family dashboard restores the last child viewed)
+  function handleOpenFamilyView(childId) {
+    try {
+      localStorage.setItem('mymadrich:family_selected_student', childId);
+    } catch {
+      // storage unavailable; the family view simply opens on the first child
+    }
+    if (switchRole(ROLES.PARENT)) navigate('/dashboard');
+  }
+
+  function renderMyChildren() {
+    return (
+      <MyChildrenCard
+        userId={user?.id}
+        canOpenFamilyView={roles.includes(ROLES.PARENT)}
+        canManageRoles={role === ROLES.ADMIN}
+        canOpenProgress={(id) => students.some((s) => s.id === id)}
+        onOpenProgress={(id) => setSelectedStudentId(id)}
+        onOpenFamilyView={handleOpenFamilyView}
+      />
+    );
+  }
+
   // ---- Render helper: log session shortcut (tutor) ----
   function renderLogSessionShortcut() {
     if (!dashData) return null;
@@ -2063,6 +2089,9 @@ export default function Dashboard() {
           readinessPct={adminHeroData.readinessPct}
           paceCounts={adminHeroData.paceCounts}
         />
+
+        {/* My children: shortcuts to the signed-in person's own children, when they have any */}
+        {renderMyChildren()}
 
         {/* Alerts panel scoped to selected cohort */}
         {adminCohortStudents.length > 0 && (
@@ -2838,6 +2867,7 @@ export default function Dashboard() {
           <div className="tutor-landing">
             <TutorFirstRunStrip />
             <TutorMissingHoursNudge tutorId={user?.id} />
+            {renderMyChildren()}
 
             {/* Header: count + attention + log button */}
             <div className="tut-header">
