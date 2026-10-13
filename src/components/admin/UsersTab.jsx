@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import { sortRoles, ROLE_ORDER } from '../../utils/roles';
 import { planRoleChanges, defaultPrimary } from '../../utils/roleChanges';
+import { findAccountByEmail, describeRoles } from '../../utils/existingAccounts';
 
 const ROLE_OPTIONS = ['admin', 'tutor', 'student', 'parent'];
 
@@ -51,6 +52,7 @@ export default function UsersTab() {
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'parent', student_id: '', guardian_id: '' });
   const [inviteSaving, setInviteSaving] = useState(false);
   const [inviteError, setInviteError] = useState(null);
+  const [inviteExisting, setInviteExisting] = useState(null); // an existing account that matches the invited email
 
   // Unlink confirm modal state
   const [unlinkTarget, setUnlinkTarget] = useState(null);
@@ -395,6 +397,7 @@ export default function UsersTab() {
   function openInviteModal() {
     setInviteForm({ email: '', role: 'parent', student_id: '', guardian_id: '' });
     setInviteError(null);
+    setInviteExisting(null);
     setShowInviteModal(true);
   }
 
@@ -402,6 +405,7 @@ export default function UsersTab() {
     setShowInviteModal(false);
     setInviteForm({ email: '', role: 'parent', student_id: '', guardian_id: '' });
     setInviteError(null);
+    setInviteExisting(null);
   }
 
   async function handleInvite() {
@@ -415,10 +419,14 @@ export default function UsersTab() {
       return;
     }
 
-    // Check for existing profile with this email
-    const existingProfile = profiles.find((p) => p.email.toLowerCase() === email);
-    if (existingProfile) {
-      setInviteError(`A user with this email already exists (${existingProfile.display_name}).`);
+    // An email that already has an account: offer to add the role to that account instead of inviting
+    const existingAccount = findAccountByEmail(
+      profiles.map((p) => ({ ...p, roles: getProfileRoles(p) })),
+      email
+    );
+    if (existingAccount) {
+      setInviteError(null);
+      setInviteExisting(existingAccount);
       return;
     }
 
@@ -462,6 +470,57 @@ export default function UsersTab() {
   }
 
   // ---- Cancel invitation ----
+  // ---- Add the role to an account that already exists (instead of inviting) ----
+  async function handleAddRoleInstead() {
+    if (!inviteExisting) return;
+    const account = profiles.find((p) => p.id === inviteExisting.id) || inviteExisting;
+    const role = inviteForm.role;
+    setInviteSaving(true);
+    setInviteError(null);
+    try {
+      if (!getProfileRoles(account).includes(role)) {
+        const { error: err } = await supabase.rpc('grant_role', {
+          p_profile_id: account.id,
+          p_role: role,
+        });
+        if (err) throw err;
+      }
+
+      // The invitation would have linked a record when they signed in; do it now
+      if (role === 'parent' && inviteForm.guardian_id) {
+        const guardian = guardians.find((g) => g.id === inviteForm.guardian_id);
+        if (guardian && !guardian.user_id) {
+          const { error: err } = await supabase
+            .from('student_guardians')
+            .update({ user_id: account.id })
+            .eq('id', guardian.id);
+          if (err) throw err;
+        }
+      }
+      if (role === 'student' && inviteForm.student_id) {
+        const student = students.find((s) => s.id === inviteForm.student_id);
+        if (student && !student.user_id) {
+          const { error: err } = await supabase
+            .from('students')
+            .update({ user_id: account.id })
+            .eq('id', student.id);
+          if (err) throw err;
+        }
+      }
+
+      const name = account.display_name || account.email;
+      closeInviteModal();
+      setRoleNotice('');
+      setTimeout(() => setRoleNotice(`${name} now holds the ${ROLE_LABELS[role]} role.`), 50);
+      await fetchAll({ silent: true });
+      if (account.id === currentUser?.id && refreshProfile) await refreshProfile();
+    } catch (err) {
+      setInviteError(err.message);
+    } finally {
+      setInviteSaving(false);
+    }
+  }
+
   async function handleCancelInvite(inviteId) {
     try {
       const { error: err } = await supabase
@@ -617,7 +676,37 @@ export default function UsersTab() {
     </>
   );
 
-  const inviteFooter = (
+  // ---- Invite dialog: when the email already has an account ----
+  const invAccount = inviteExisting ? (profiles.find((p) => p.id === inviteExisting.id) || inviteExisting) : null;
+  const invHeld = invAccount ? getProfileRoles(invAccount) : [];
+  const invRole = inviteForm.role;
+  const invAlreadyHolds = invHeld.includes(invRole);
+  // The record the invitation would have linked, if one was chosen and is still unlinked
+  const invRecord =
+    invRole === 'parent' && inviteForm.guardian_id
+      ? guardians.find((g) => g.id === inviteForm.guardian_id)
+      : invRole === 'student' && inviteForm.student_id
+        ? students.find((s) => s.id === inviteForm.student_id)
+        : null;
+  const invLinkable = Boolean(invRecord && !invRecord.user_id);
+  const invNothingToDo = invAlreadyHolds && !invLinkable;
+
+  const inviteFooter = inviteExisting ? (
+    <>
+      <button className="btn btn-outline" onClick={() => setInviteExisting(null)}>Back</button>
+      <button
+        className="btn btn-primary"
+        onClick={handleAddRoleInstead}
+        disabled={inviteSaving || invNothingToDo}
+      >
+        {inviteSaving
+          ? 'Adding...'
+          : invLinkable
+            ? (invAlreadyHolds ? 'Link Record' : 'Add Role and Link')
+            : 'Add Role'}
+      </button>
+    </>
+  ) : (
     <>
       <button className="btn btn-outline" onClick={closeInviteModal}>Cancel</button>
       <button
@@ -991,9 +1080,47 @@ export default function UsersTab() {
         >
           {inviteError && <div className="alert alert-error">{inviteError}</div>}
 
+          {inviteExisting && (
+            <div
+              style={{
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface-inset)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-4)',
+              }}
+            >
+              <p style={{ margin: 0 }}>
+                <strong>{invAccount.display_name || invAccount.email} already has an account.</strong>
+              </p>
+              <p className="form-hint" style={{ margin: 'var(--space-1) 0 var(--space-3)' }}>
+                Current roles: {describeRoles(invHeld)}
+              </p>
+              {invNothingToDo ? (
+                <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+                  They already hold the {ROLE_LABELS[invRole]} role
+                  {invRecord ? ', and the record you chose is already linked' : ''}. There is nothing to add.
+                  Change the role above, or go back and use a different email.
+                </p>
+              ) : (
+                <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+                  {invAlreadyHolds
+                    ? `Link the ${invRole === 'parent' ? 'guardian' : 'student'} record you chose to their account?`
+                    : `Add the ${ROLE_LABELS[invRole]} role to their account instead of sending an invitation?`}
+                  {' '}No email is sent.
+                  {invLinkable && !invAlreadyHolds
+                    ? ` The ${invRole === 'parent' ? 'guardian' : 'student'} record you chose will be linked to them.`
+                    : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          {!inviteExisting && (
           <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
             Create an invitation for a new user. After creating the invitation, copy the invite message and send it to them via email or text. When they sign in, their role and account linkage will be applied automatically.
           </p>
+          )}
 
           <div className="form-group">
             <label className="form-label">Email Address *</label>
@@ -1001,7 +1128,10 @@ export default function UsersTab() {
               className="input"
               type="email"
               value={inviteForm.email}
-              onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+              onChange={(e) => {
+                setInviteForm({ ...inviteForm, email: e.target.value });
+                setInviteExisting(null);
+              }}
               placeholder="user@example.com"
               autoFocus
             />

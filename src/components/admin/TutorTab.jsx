@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { openInviteEmail } from '../../utils/mailto';
 import { fetchProfileIdsWithRole, fetchRolesByProfile } from '../../utils/roleQueries';
+import { fetchAccounts, findAccountByEmail, describeRoles } from '../../utils/existingAccounts';
 import { ROLE_LABELS } from '../../utils/constants';
 import Modal from '../ui/Modal';
 
@@ -43,6 +44,7 @@ export default function TutorTab() {
   const [addRows, setAddRows] = useState([{ name: '', email: '', phone: '' }]);
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState(null);
+  const [addExisting, setAddExisting] = useState([]); // rows whose email already has an account, awaiting confirmation
 
   // Edit modal
   const [editTarget, setEditTarget] = useState(null);
@@ -182,6 +184,7 @@ export default function TutorTab() {
     setShowAddModal(false);
     setAddRows([{ name: '', email: '', phone: '' }]);
     setAddError(null);
+    setAddExisting([]);
   }
 
   function updateAddRow(idx, field, value) {
@@ -198,7 +201,8 @@ export default function TutorTab() {
     setAddRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  async function handleAddTutors() {
+  // `confirmed` is true once the administrator has seen which people already have accounts
+  async function handleAddTutors(confirmed = false) {
     // Validate: at least one row with name + email
     const validRows = addRows.filter((r) => r.name.trim() && r.email.trim());
     if (validRows.length === 0) {
@@ -227,24 +231,59 @@ export default function TutorTab() {
     setAddSaving(true);
     setAddError(null);
     try {
-      const inserts = validRows.map((r) => ({
-        email: r.email.trim().toLowerCase(),
-        intended_role: 'tutor',
-        display_name: r.name.trim(),
-        phone: r.phone.trim() || null,
-        invited_by: currentUser.id,
-      }));
+      // Anyone who already has an account gets the tutor role directly (after the administrator
+      // confirms); everyone else is invited by email as before.
+      const accounts = await fetchAccounts();
+      const matches = validRows.map((r) => ({ row: r, account: findAccountByEmail(accounts, r.email) }));
+      const existing = matches.filter((m) => m.account);
+      const fresh = matches.filter((m) => !m.account).map((m) => m.row);
 
-      const { error: err } = await supabase
-        .from('pending_invitations')
-        .insert(inserts);
-      if (err) throw err;
+      if (existing.length > 0 && !confirmed) {
+        setAddExisting(existing);
+        return;
+      }
+
+      const granted = [];
+      for (const m of existing) {
+        if (m.account.roles.includes('tutor')) continue;
+        const { error: roleErr } = await supabase.rpc('grant_role', {
+          p_profile_id: m.account.id,
+          p_role: 'tutor',
+        });
+        if (roleErr) {
+          throw new Error(
+            `Could not add the tutor role for ${m.account.display_name || m.account.email}: ${roleErr.message}`
+          );
+        }
+        granted.push(m.account.display_name || m.account.email);
+      }
+
+      if (fresh.length > 0) {
+        const inserts = fresh.map((r) => ({
+          email: r.email.trim().toLowerCase(),
+          intended_role: 'tutor',
+          display_name: r.name.trim(),
+          phone: r.phone.trim() || null,
+          invited_by: currentUser.id,
+        }));
+
+        const { error: err } = await supabase
+          .from('pending_invitations')
+          .insert(inserts);
+        if (err) throw err;
+      }
 
       closeAddModal();
       await fetchTutors();
 
-      // Auto-open mailto for each tutor
-      validRows.forEach((r) => {
+      // Confirmation (read aloud) for people who got the role directly
+      if (granted.length > 0) {
+        setResendNotice('');
+        setTimeout(() => setResendNotice(`Tutor role added for ${granted.join(', ')}.`), 50);
+      }
+
+      // Auto-open mailto for each newly invited tutor
+      fresh.forEach((r) => {
         openInviteEmail({
           recipientEmail: r.email.trim(),
           recipientName: r.name.trim(),
@@ -506,11 +545,21 @@ export default function TutorTab() {
 
   const inactiveCount = tutors.filter((t) => t._type === 'claimed' && !t.is_active).length;
 
-  const addFooter = (
+  const addValidCount = addRows.filter((r) => r.name.trim() && r.email.trim()).length;
+  const addFreshCount = Math.max(addValidCount - addExisting.length, 0);
+
+  const addFooter = addExisting.length > 0 ? (
+    <>
+      <button className="btn btn-outline" onClick={() => setAddExisting([])}>Back</button>
+      <button className="btn btn-primary" onClick={() => handleAddTutors(true)} disabled={addSaving}>
+        {addSaving ? 'Adding...' : addFreshCount > 0 ? 'Add Role and Send Invitations' : 'Add Tutor Role'}
+      </button>
+    </>
+  ) : (
     <>
       <button className="btn btn-outline" onClick={closeAddModal}>Cancel</button>
-      <button className="btn btn-primary" onClick={handleAddTutors} disabled={addSaving}>
-        {addSaving ? 'Sending...' : `Invite ${addRows.filter((r) => r.name.trim() && r.email.trim()).length || ''} Tutor${addRows.filter((r) => r.name.trim() && r.email.trim()).length === 1 ? '' : 's'}`}
+      <button className="btn btn-primary" onClick={() => handleAddTutors(false)} disabled={addSaving}>
+        {addSaving ? 'Sending...' : `Invite ${addValidCount || ''} Tutor${addValidCount === 1 ? '' : 's'}`}
       </button>
     </>
   );
@@ -610,6 +659,41 @@ export default function TutorTab() {
       {showAddModal && (
         <Modal title="Add Tutor" onClose={closeAddModal} footer={addFooter}>
           {addError && <div className="alert alert-error">{addError}</div>}
+
+          {addExisting.length > 0 && (
+            <div
+              style={{
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface-inset)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-4)',
+              }}
+            >
+              <p style={{ margin: 0 }}>
+                <strong>
+                  {addExisting.length === 1 ? 'This person already has an account' : `${addExisting.length} people already have accounts`}.
+                </strong>{' '}
+                They get the tutor role right away, with no email, and keep every role they hold:
+              </p>
+              <ul style={{ margin: 'var(--space-2) 0 0', paddingLeft: 'var(--space-5)' }}>
+                {addExisting.map((m) => (
+                  <li key={m.account.id}>
+                    {m.account.display_name || m.account.email}{' '}
+                    <span className="form-hint">
+                      ({describeRoles(m.account.roles)}
+                      {m.account.roles.includes('tutor') ? '; already a tutor, nothing to add' : ''})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {addFreshCount > 0 && (
+                <p style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sm)' }}>
+                  The other {addFreshCount === 1 ? 'tutor is' : `${addFreshCount} tutors are`} invited by email as usual.
+                </p>
+              )}
+            </div>
+          )}
 
           <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
             Each tutor will receive an email invitation. They will appear on this page

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { openInviteEmail } from '../../utils/mailto';
+import { fetchAccounts, findAccountByEmail, describeRoles } from '../../utils/existingAccounts';
 import Modal from '../ui/Modal';
 
 const RELATIONSHIP_OPTIONS = ['Mother', 'Father', 'Parent', 'Guardian', 'Stepparent', 'Grandparent'];
@@ -44,6 +45,13 @@ export default function GuardiansSection({
   // Track which guardians have pending invitations (fetched on mount)
   const [pendingInvites, setPendingInvites] = useState({});
 
+  // People who already have an account (so a guardian whose email has one is linked, not invited)
+  const [accounts, setAccounts] = useState([]);
+  const [linkTarget, setLinkTarget] = useState(null); // { guardian, account } awaiting confirmation
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState(null);
+  const [notice, setNotice] = useState('');
+
   const [form, setForm] = useState({
     name: '',
     relationship: 'Parent',
@@ -75,6 +83,15 @@ export default function GuardiansSection({
       }
     }
     loadPendingStatus();
+  }, [guardians]);
+
+  // Load everyone with an account; reloaded whenever the guardians change (for example after a link)
+  useEffect(() => {
+    let cancelled = false;
+    fetchAccounts()
+      .then((list) => { if (!cancelled) setAccounts(list); })
+      .catch(() => { /* non-critical: the Invite button is simply offered as before */ });
+    return () => { cancelled = true; };
   }, [guardians]);
 
   function resetForm() {
@@ -222,8 +239,58 @@ export default function GuardiansSection({
     }
   }
 
+  // ---- Link a guardian record to an account that already exists ----
+
+  function openLinkAccount(guardian) {
+    const account = findAccountByEmail(accounts, guardian.email);
+    if (!account) return;
+    setLinkTarget({ guardian, account });
+    setLinkError(null);
+  }
+
+  function closeLinkAccount() {
+    setLinkTarget(null);
+    setLinkError(null);
+  }
+
+  async function handleLinkAccount() {
+    if (!linkTarget) return;
+    const { guardian, account } = linkTarget;
+    setLinking(true);
+    setLinkError(null);
+    try {
+      if (!account.roles.includes('parent')) {
+        const { error: err } = await supabase.rpc('grant_role', {
+          p_profile_id: account.id,
+          p_role: 'parent',
+        });
+        if (err) throw err;
+      }
+      await onUpdateGuardian(guardian.id, { user_id: account.id });
+
+      // An invitation that is still open for this guardian is no longer needed
+      await supabase
+        .from('pending_invitations')
+        .update({ accepted_at: new Date().toISOString() })
+        .eq('guardian_id', guardian.id)
+        .is('accepted_at', null);
+
+      closeLinkAccount();
+      setNotice('');
+      setTimeout(
+        () => setNotice(`${guardian.name} is now linked to ${account.display_name || account.email}.`),
+        50
+      );
+    } catch (err) {
+      setLinkError(err.message);
+    } finally {
+      setLinking(false);
+    }
+  }
+
   function getInviteStatus(guardian) {
     if (guardian.user_id) return 'linked';
+    if (guardian.email && findAccountByEmail(accounts, guardian.email)) return 'can_link';
     if (pendingInvites[guardian.id]) return 'invited';
     if (guardian.email) return 'can_invite';
     return 'no_email';
@@ -249,6 +316,9 @@ export default function GuardiansSection({
 
       {error && <div className="alert alert-error" style={{ marginTop: 'var(--space-3)' }}>{error}</div>}
       {inviteError && <div className="alert alert-error" style={{ marginTop: 'var(--space-3)' }}>{inviteError}</div>}
+      <div role="status" aria-live="polite">
+        {notice && <div className="alert alert-success" style={{ marginTop: 'var(--space-3)' }}>{notice}</div>}
+      </div>
 
       {guardians.length === 0 ? (
         <div className="empty-state">
@@ -275,6 +345,15 @@ export default function GuardiansSection({
                   </div>
                 </div>
                 <div className="action-buttons">
+                  {status === 'can_link' && (
+                    <button
+                      className="btn btn-small btn-primary"
+                      onClick={() => openLinkAccount(g)}
+                      aria-label={`Link ${g.name} to their existing account`}
+                    >
+                      Link account
+                    </button>
+                  )}
                   {status === 'can_invite' && (
                     <button
                       className="btn btn-small btn-primary"
@@ -307,6 +386,38 @@ export default function GuardiansSection({
             );
           })}
         </div>
+      )}
+
+      {/* Link to an existing account */}
+      {linkTarget && (
+        <Modal
+          title="Link Account"
+          onClose={closeLinkAccount}
+          footer={
+            <>
+              <button className="btn btn-outline" onClick={closeLinkAccount}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleLinkAccount} disabled={linking}>
+                {linking
+                  ? 'Linking...'
+                  : linkTarget.account.roles.includes('parent') ? 'Link Account' : 'Add Role and Link'}
+              </button>
+            </>
+          }
+        >
+          {linkError && <div className="alert alert-error">{linkError}</div>}
+          <p style={{ margin: 0 }}>
+            <strong>{linkTarget.account.display_name || linkTarget.account.email} already has an account.</strong>
+          </p>
+          <p className="form-hint" style={{ margin: 'var(--space-1) 0 var(--space-3)' }}>
+            Current roles: {describeRoles(linkTarget.account.roles)}
+          </p>
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            {linkTarget.account.roles.includes('parent')
+              ? `Link ${linkTarget.guardian.name}'s guardian record to this account?`
+              : `Link ${linkTarget.guardian.name}'s guardian record to this account and add the Parent role to it?`}
+            {' '}No email is sent. They keep every role they already hold.
+          </p>
+        </Modal>
       )}
 
       {/* Delete confirmation */}
