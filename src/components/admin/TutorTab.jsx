@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { openInviteEmail } from '../../utils/mailto';
+import { fetchProfileIdsWithRole, fetchRolesByProfile } from '../../utils/roleQueries';
+import { ROLE_LABELS } from '../../utils/constants';
 import Modal from '../ui/Modal';
 
 /**
@@ -54,6 +56,11 @@ export default function TutorTab() {
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateError, setDeactivateError] = useState(null);
 
+  // Remove tutor role (for people who also hold other roles, such as an administrator who tutors)
+  const [removeRoleTarget, setRemoveRoleTarget] = useState(null);
+  const [removingRole, setRemovingRole] = useState(false);
+  const [removeRoleError, setRemoveRoleError] = useState(null);
+
   // Cancel invitation confirm
   const [cancelTarget, setCancelTarget] = useState(null);
 
@@ -70,13 +77,20 @@ export default function TutorTab() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Claimed tutor profiles
-      const { data: profiles, error: profileErr } = await supabase
-        .from('profiles')
-        .select('id, display_name, email, phone, is_active')
-        .eq('role', 'tutor')
-        .order('display_name');
-      if (profileErr) throw profileErr;
+      // 1. Claimed tutors: everyone who HOLDS the tutor role, whatever else they also hold
+      //    (an administrator who tutors appears here too)
+      const tutorIds = await fetchProfileIdsWithRole('tutor');
+      let profiles = [];
+      if (tutorIds.length > 0) {
+        const { data: profileRows, error: profileErr } = await supabase
+          .from('profiles')
+          .select('id, display_name, email, phone, is_active')
+          .in('id', tutorIds)
+          .order('display_name');
+        if (profileErr) throw profileErr;
+        profiles = profileRows || [];
+      }
+      const rolesByProfile = await fetchRolesByProfile(tutorIds);
 
       // 2. Pending tutor invitations (not yet claimed)
       const { data: pending, error: pendErr } = await supabase
@@ -127,6 +141,8 @@ export default function TutorTab() {
         is_active: p.is_active,
         studentCount: studentCountMap[p.id] || 0,
         sessionCount: sessionCountMap[p.id] || 0,
+        // Roles held besides tutor (an empty list for someone who only tutors)
+        otherRoles: (rolesByProfile[p.id] || []).filter((r) => r !== 'tutor'),
       }));
 
       // Filter out pending invitations whose email already has a claimed profile
@@ -347,6 +363,38 @@ export default function TutorTab() {
     }
   }
 
+  // ---- Remove tutor role (people who also hold other roles) ----
+
+  function openRemoveRoleModal(tutor) {
+    setRemoveRoleTarget(tutor);
+    setRemoveRoleError(null);
+  }
+
+  function closeRemoveRoleModal() {
+    setRemoveRoleTarget(null);
+    setRemoveRoleError(null);
+  }
+
+  async function handleRemoveRole() {
+    if (!removeRoleTarget) return;
+    setRemovingRole(true);
+    setRemoveRoleError(null);
+    try {
+      const { error: err } = await supabase.rpc('revoke_role', {
+        p_profile_id: removeRoleTarget.id,
+        p_role: 'tutor',
+      });
+      if (err) throw err;
+      closeRemoveRoleModal();
+      await fetchTutors();
+    } catch (err) {
+      // The database explains why in plain language (for example, active students must be reassigned first)
+      setRemoveRoleError(err.message);
+    } finally {
+      setRemovingRole(false);
+    }
+  }
+
   // ---- Cancel Invitation ----
 
   async function handleCancelInvitation() {
@@ -424,7 +472,15 @@ export default function TutorTab() {
         <button className="btn btn-small btn-outline" onClick={() => openEditModal(tutor)}>
           Edit
         </button>
-        {tutor.is_active ? (
+        {tutor.is_active && tutor.otherRoles && tutor.otherRoles.length > 0 ? (
+          // Deactivating would lock them out of their other roles, so the action is to remove the tutor role
+          <button
+            className="btn btn-small btn-danger-outline"
+            onClick={() => openRemoveRoleModal(tutor)}
+          >
+            Remove tutor role
+          </button>
+        ) : tutor.is_active ? (
           <button
             className="btn btn-small btn-danger-outline"
             onClick={() => openDeactivateModal(tutor)}
@@ -526,7 +582,14 @@ export default function TutorTab() {
                   : ''
                 }
               >
-                <td data-label="Name">{t.display_name || '\u2014'}</td>
+                <td data-label="Name">
+                  {t.display_name || '\u2014'}
+                  {t.otherRoles && t.otherRoles.length > 0 && (
+                    <div className="form-hint">
+                      Also {t.otherRoles.map((r) => ROLE_LABELS[r] || r).join(', ')}
+                    </div>
+                  )}
+                </td>
                 <td data-label="Email">{t.email}</td>
                 <td data-label="Phone">{t.phone || '\u2014'}</td>
                 <td data-label="Students">
@@ -725,6 +788,51 @@ export default function TutorTab() {
             />
             <span>I understand this tutor will be deactivated</span>
           </label>
+        </Modal>
+      )}
+
+      {/* Remove tutor role (someone who also holds other roles) */}
+      {removeRoleTarget && (
+        <Modal
+          title="Remove Tutor Role"
+          onClose={closeRemoveRoleModal}
+          footer={
+            <>
+              <button className="btn btn-outline" onClick={closeRemoveRoleModal}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ backgroundColor: 'var(--color-error)' }}
+                onClick={handleRemoveRole}
+                disabled={removingRole || removeRoleTarget.studentCount > 0}
+              >
+                {removingRole ? 'Removing...' : 'Remove Tutor Role'}
+              </button>
+            </>
+          }
+        >
+          {removeRoleError && <div className="alert alert-error">{removeRoleError}</div>}
+
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
+            <strong>{removeRoleTarget.display_name}</strong> will stop being a tutor and will no
+            longer appear in tutor assignment dropdowns. They keep their other
+            role{removeRoleTarget.otherRoles.length !== 1 ? 's' : ''} (
+            {removeRoleTarget.otherRoles.map((r) => ROLE_LABELS[r] || r).join(', ')}).
+          </p>
+
+          {removeRoleTarget.sessionCount > 0 && (
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>
+              Their <strong>{removeRoleTarget.sessionCount} logged session{removeRoleTarget.sessionCount !== 1 ? 's' : ''}</strong> stay
+              in Session History, attributed to them.
+            </p>
+          )}
+
+          {removeRoleTarget.studentCount > 0 && (
+            <div className="alert alert-error" style={{ marginTop: 'var(--space-3)' }}>
+              {removeRoleTarget.display_name} still has {removeRoleTarget.studentCount} active or
+              deferred student{removeRoleTarget.studentCount !== 1 ? 's' : ''}. Reassign
+              {removeRoleTarget.studentCount !== 1 ? ' them' : ' the student'} first, then remove the role.
+            </div>
+          )}
         </Modal>
       )}
     </div>

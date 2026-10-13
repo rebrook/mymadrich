@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
+import { fetchProfileIdsWithRole } from '../../utils/roleQueries';
 import Modal from '../ui/Modal';
 
 const TEMPLATE_COLUMNS = [
@@ -61,12 +62,18 @@ export default function ImportStudentsModal({ onClose, onComplete }) {
         const active = (c || []).filter((co) => co.is_active);
         if (active.length === 1) setSelectedCohortId(active[0].id);
 
-        const { data: t } = await supabase
-          .from('profiles')
-          .select('id, email, display_name')
-          .eq('role', 'tutor')
-          .eq('is_active', true);
-        setTutors(t || []);
+        // Everyone who holds the tutor role (an administrator who also tutors included)
+        const tutorIds = await fetchProfileIdsWithRole('tutor');
+        let t = [];
+        if (tutorIds.length > 0) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('id, email, display_name')
+            .in('id', tutorIds)
+            .eq('is_active', true);
+          t = data || [];
+        }
+        setTutors(t);
       } catch (err) {
         setError('Failed to load reference data: ' + err.message);
       } finally {

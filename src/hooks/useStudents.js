@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { fetchProfileIdsWithRole } from '../utils/roleQueries';
 
 /**
  * Hook for student list operations.
@@ -149,7 +150,8 @@ export function useStudents(cohortId) {
  * Fetch all tutors for the assignment picker.
  *
  * Returns a unified list of:
- *   1. Profile tutors (role='tutor', already signed in) — source: 'profile'
+ *   1. Profile tutors (hold the tutor role, already signed in) — source: 'profile'
+ *      Includes an administrator who also tutors, whatever their primary role.
  *   2. Pending tutor invitations (not yet signed in) — source: 'pending'
  *
  * Deduplication: if the same email exists as both a profile and a pending
@@ -169,19 +171,25 @@ export function useStudents(cohortId) {
  *   active tutors are returned.
  */
 export async function fetchTutors({ includeInactive = false } = {}) {
-  // 1. Profile tutors (existing behavior)
-  let profileQuery = supabase
-    .from('profiles')
-    .select('id, display_name, email, is_active')
-    .eq('role', 'tutor')
-    .order('display_name');
+  // 1. Profile tutors: everyone who HOLDS the tutor role (an administrator who also tutors
+  //    is included, whatever their primary role)
+  const tutorIds = await fetchProfileIdsWithRole('tutor');
+  let profileTutors = [];
+  if (tutorIds.length > 0) {
+    let profileQuery = supabase
+      .from('profiles')
+      .select('id, display_name, email, is_active')
+      .in('id', tutorIds)
+      .order('display_name');
 
-  if (!includeInactive) {
-    profileQuery = profileQuery.eq('is_active', true);
+    if (!includeInactive) {
+      profileQuery = profileQuery.eq('is_active', true);
+    }
+
+    const { data, error: profileErr } = await profileQuery;
+    if (profileErr) throw profileErr;
+    profileTutors = data || [];
   }
-
-  const { data: profileTutors, error: profileErr } = await profileQuery;
-  if (profileErr) throw profileErr;
 
   // Tag each profile tutor with source
   const profiles = (profileTutors || []).map((t) => ({

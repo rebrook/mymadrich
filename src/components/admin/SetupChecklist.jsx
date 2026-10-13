@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { fetchProfileIdsWithRole } from '../../utils/roleQueries';
 import { getCurrentCohort } from '../../utils/cohorts';
 
 const COLLAPSE_KEY = 'mymadrich:admin_checklist_collapsed';
@@ -100,13 +101,19 @@ export default function SetupChecklist({ cohorts, onSwitchTab, userId }) {
     }
 
     try {
-      // 1. Tutor count (active only; excludes deactivated tutors)
-      const { count: tutorCount, error: tutErr } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('role', 'tutor')
-        .eq('is_active', true);
-      if (tutErr) throw tutErr;
+      // 1. Tutor count (active only; excludes deactivated tutors). Counts everyone who HOLDS the
+      //    tutor role, including an administrator who also tutors.
+      const tutorIds = await fetchProfileIdsWithRole('tutor');
+      let tutorCount = 0;
+      if (tutorIds.length > 0) {
+        const { count, error: tutErr } = await supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .in('id', tutorIds)
+          .eq('is_active', true);
+        if (tutErr) throw tutErr;
+        tutorCount = count || 0;
+      }
 
       // 1b. Pending tutor invitations (not yet claimed)
       const { count: pendingTutorCount, error: ptErr } = await supabase
@@ -152,12 +159,13 @@ export default function SetupChecklist({ cohorts, onSwitchTab, userId }) {
 
       const studentsWithNoElements = studentIds.filter((id) => !elementStudentIds.has(id));
 
-      // 5. Family user count (student or parent role profiles)
-      const { count: familyUserCount, error: fuErr } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
+      // 5. Family user count (people who hold the student or parent role)
+      const { data: familyRows, error: fuErr } = await supabase
+        .from('profile_roles')
+        .select('profile_id')
         .in('role', ['student', 'parent']);
       if (fuErr) throw fuErr;
+      const familyUserCount = new Set((familyRows || []).map((r) => r.profile_id)).size;
 
       // 6. Pending invitations count
       const { count: pendingInviteCount, error: piErr } = await supabase
