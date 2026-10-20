@@ -19,6 +19,9 @@ const PACE_PILLS = [
   { key: 'family_tutored', label: 'Family-tutored', color: 'rgba(255,255,255,0.7)', title: 'Taught by a family member; pace is not tracked here' },
 ];
 
+// Tile labels by key, so the Dashboard's filter chip always uses the same words as the tiles
+export const PACE_PILL_LABELS = Object.fromEntries(PACE_PILLS.map((pill) => [pill.key, pill.label]));
+
 // Plain-language explanation of the readiness ring. Mirrors the calculation in
 // Dashboard.jsx (adminHeroData) and the "learned with trope" rule in utils/mastery.js.
 const READINESS_HELP =
@@ -30,6 +33,8 @@ export default function CohortSummaryHero({
   avgDaysToMitzvah = null,
   readinessPct = 0,
   paceCounts = {},
+  activePace = null,
+  onSelectPace,
 }) {
   // Animate ring fill (respects reduced motion)
   const [fill, setFill] = useState(0);
@@ -116,17 +121,43 @@ export default function CohortSummaryHero({
         <div className="cs-pills">
           {PACE_PILLS.map((pill) => {
             const count = paceCounts[pill.key] || 0;
+            const content = (
+              <>
+                <b>{count}</b>
+                <span>
+                  <i className="cs-pill-dot" style={{ backgroundColor: pill.color }} />
+                  {pill.label}
+                </span>
+              </>
+            );
+
+            // A tile with students in it is a button that shows those students.
+            // An empty tile (or any tile when no handler is given) stays plain.
+            if (onSelectPace && count > 0) {
+              const isActive = activePace === pill.key;
+              const hint = isActive ? 'Select to clear this filter' : 'Select to show these students';
+              return (
+                <button
+                  key={pill.key}
+                  type="button"
+                  className={`cs-pill cs-pill-button${isActive ? ' cs-pill-active' : ''}`}
+                  title={pill.title ? `${pill.title}. ${hint}` : hint}
+                  aria-pressed={isActive}
+                  aria-label={`${count} ${pill.label}`}
+                  onClick={() => onSelectPace(pill.key)}
+                >
+                  {content}
+                </button>
+              );
+            }
+
             return (
               <div
                 key={pill.key}
                 className="cs-pill"
                 title={pill.title}
               >
-                <b>{count}</b>
-                <span>
-                  <i className="cs-pill-dot" style={{ backgroundColor: pill.color }} />
-                  {pill.label}
-                </span>
+                {content}
               </div>
             );
           })}

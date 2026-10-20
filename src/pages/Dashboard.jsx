@@ -25,7 +25,7 @@ import StudentSwitcher from '../components/ui/StudentSwitcher';
 import MyChildrenCard from '../components/ui/MyChildrenCard';
 import HeroHeader from '../components/ui/HeroHeader';
 import CeremonialHero from '../components/ui/CeremonialHero';
-import CohortSummaryHero from '../components/ui/CohortSummaryHero';
+import CohortSummaryHero, { PACE_PILL_LABELS } from '../components/ui/CohortSummaryHero';
 import StatTile from '../components/ui/StatTile';
 import { ElementGroup } from '../components/ui/ElementRow';
 import PersonRow from '../components/ui/PersonRow';
@@ -115,6 +115,38 @@ function getDaysToMitzvah(mitzvahDate) {
 }
 
 // ---- Main Dashboard ----
+
+/**
+ * True once a student's mitzvah date is before today (midnight). This is the
+ * same comparison the cohort hero has always used for its tiles.
+ */
+function isMitzvahDatePassed(student, today) {
+  return !!(student.mitzvah_date && new Date(student.mitzvah_date + 'T00:00:00') < today);
+}
+
+/**
+ * The one rule that puts a student in a cohort hero tile. The hero counts and
+ * the tile filter BOTH call this, so "7 on track" always lists exactly 7.
+ * Returns: on_track | behind | critical | completed | not_started | family_tutored
+ */
+function getAdminPaceBucket(student, paceStatus, today) {
+  // Once the mitzvah date has passed, treat as Completed regardless of
+  // actual pace/progress: the event happened, that's a celebration, not an audit.
+  if (isMitzvahDatePassed(student, today)) return 'completed';
+  if (student.family_tutored) return 'family_tutored';
+  if (paceStatus === 'on_track' || paceStatus === 'ahead') return 'on_track';
+  if (paceStatus === 'behind') return 'behind';
+  if (paceStatus === 'critical' || paceStatus === 'past_due') return 'critical';
+  if (paceStatus === 'completed') return 'completed';
+  return 'not_started';
+}
+
+// Why a student sits in the Completed tile (shown in the Completed list)
+const COMPLETED_REASON_LABELS = {
+  marked: 'Marked completed',
+  date_passed: 'Date passed',
+  fully_prepared: 'Fully prepared',
+};
 
 export default function Dashboard() {
   const { user, role, roles, switchRole } = useAuth();
@@ -208,6 +240,13 @@ export default function Dashboard() {
   const [adminCohortId, setAdminCohortId] = useState('');
   // Students whose stored status is Completed (not in the main list); feeds the hero's Completed tile
   const [adminCompletedCount, setAdminCompletedCount] = useState(0);
+  // Cohort hero tile filter: null | on_track | behind | critical | completed | not_started | family_tutored
+  const [adminPaceFilter, setAdminPaceFilter] = useState(null);
+  // Students marked Completed, loaded only while the Completed filter is on
+  const [adminCompletedStudents, setAdminCompletedStudents] = useState([]);
+  // Completed list: which row is asking "Return to active?", and which is saving
+  const [restoreConfirmId, setRestoreConfirmId] = useState(null);
+  const [restoringId, setRestoringId] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminSortKey, setAdminSortKey] = useState('pace');
   const [adminSortDir, setAdminSortDir] = useState('asc');
@@ -245,6 +284,9 @@ export default function Dashboard() {
     // A partial-failure warning names students from the view being left, and it
     // never auto-dismisses, so drop it too. Success toasts expire on their own.
     setBulkToast((prev) => (prev && prev.kind === 'warning' ? null : prev));
+    // A tile filter belongs to the cohort it was chosen in
+    setAdminPaceFilter(null);
+    setRestoreConfirmId(null);
   }, [adminCohortId, adminLens]);
 
   // Auto-dismiss undo toast after 6 seconds. Warning toasts (partial failure)
@@ -336,6 +378,39 @@ export default function Dashboard() {
     })();
     return () => { cancelled = true; };
   }, [role, adminCohortId, students]);
+
+  // ---- Admin: load Completed-status students for the Completed list ----
+  // Only while the Completed tile filter is on. Same shape as the main list so
+  // the tutor column renders the same way. Reloads whenever the list reloads,
+  // which covers "Return to active" and its undo.
+  useEffect(() => {
+    if (role !== ROLES.ADMIN || adminPaceFilter !== 'completed') {
+      setAdminCompletedStudents([]);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      let listQuery = supabase
+        .from('students')
+        .select(`
+          id, first_name, last_name, mitzvah_date, status, tutor_id, family_tutored,
+          tutor:profiles!tutor_id(display_name, email),
+          cohort:cohorts!cohort_id(id, name),
+          student_tutors(tutor_id, created_at, tutor:profiles!tutor_id(id, display_name, email))
+        `)
+        .eq('status', STUDENT_STATUS.COMPLETED)
+        .order('last_name');
+      if (adminCohortId) listQuery = listQuery.eq('cohort_id', adminCohortId);
+      const { data, error: listErr } = await listQuery;
+      if (cancelled) return;
+      if (listErr) {
+        console.error('Failed to load completed students:', listErr.message);
+        return;
+      }
+      setAdminCompletedStudents(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [role, adminCohortId, adminPaceFilter, students]);
 
   // ---- Persist family child selection to localStorage ----
   useEffect(() => {
@@ -729,8 +804,17 @@ export default function Dashboard() {
         return full.includes(q) || reversed.includes(q);
       });
     }
+    // Tile filter. 'completed' is shown as its own list (it also holds students
+    // who are not in this table), so it is not applied here.
+    if (adminPaceFilter && adminPaceFilter !== 'completed') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      list = list.filter(
+        (s) => getAdminPaceBucket(s, paceMap[s.id]?.pace?.status, today) === adminPaceFilter
+      );
+    }
     return list;
-  }, [role, students, adminCohortId, adminSearch]);
+  }, [role, students, adminCohortId, adminSearch, adminPaceFilter, paceMap]);
 
   // Sort admin filtered students
   const adminSortedStudents = useMemo(() => {
@@ -840,20 +924,8 @@ export default function Dashboard() {
         totalVerse += prog.total;
         masteredVerse += prog.mastered;
       }
-      const paceStatus = paceMap[s.id]?.pace?.status;
-      const mitzvahHasPassed = s.mitzvah_date && new Date(s.mitzvah_date + 'T00:00:00') < today;
-
-      // Once the mitzvah date has passed, treat as Completed regardless of
-      // actual pace/progress — the event happened, that's a celebration,
-      // not an audit. Pace-based buckets no longer apply.
-      if (mitzvahHasPassed) {
-        counts.completed += 1;
-      } else if (s.family_tutored) counts.family_tutored += 1;
-      else if (paceStatus === 'on_track' || paceStatus === 'ahead') counts.on_track += 1;
-      else if (paceStatus === 'behind') counts.behind += 1;
-      else if (paceStatus === 'critical' || paceStatus === 'past_due') counts.critical += 1;
-      else if (paceStatus === 'completed') counts.completed += 1;
-      else counts.not_started += 1;
+      // One shared rule (getAdminPaceBucket) so the tile filter can never drift from these counts.
+      counts[getAdminPaceBucket(s, paceMap[s.id]?.pace?.status, today)] += 1;
 
       if (s.mitzvah_date) {
         const mDate = new Date(s.mitzvah_date + 'T00:00:00');
@@ -874,6 +946,77 @@ export default function Dashboard() {
 
     return { readinessPct: pct, avgDays: avg, paceCounts: counts };
   }, [adminCohortStudents, progressMap, paceMap, adminCompletedCount]);
+
+  // ---- Admin: the Completed list (the students behind the Completed tile) ----
+  // Three kinds of student sit in the tile: date passed, fully prepared (all
+  // verses learned, service still ahead), and marked Completed by hand. The
+  // first two come from the main list; the third is loaded separately above.
+  const adminCompletedRows = useMemo(() => {
+    if (role !== ROLES.ADMIN || adminPaceFilter !== 'completed') return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rows = [];
+    adminCohortStudents.forEach((s) => {
+      if (getAdminPaceBucket(s, paceMap[s.id]?.pace?.status, today) !== 'completed') return;
+      rows.push({ student: s, reason: isMitzvahDatePassed(s, today) ? 'date_passed' : 'fully_prepared' });
+    });
+    adminCompletedStudents.forEach((s) => rows.push({ student: s, reason: 'marked' }));
+
+    const q = adminSearch.trim().toLowerCase();
+    const matched = q
+      ? rows.filter(({ student: s }) => {
+          const full = `${s.first_name} ${s.last_name}`.toLowerCase();
+          const reversed = `${s.last_name}, ${s.first_name}`.toLowerCase();
+          return full.includes(q) || reversed.includes(q);
+        })
+      : rows;
+
+    // Most recent mitzvah first; students with no date last
+    return matched.sort((a, b) => {
+      const da = a.student.mitzvah_date || null;
+      const db = b.student.mitzvah_date || null;
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return db.localeCompare(da);
+    });
+  }, [role, adminPaceFilter, adminCohortStudents, adminCompletedStudents, paceMap, adminSearch]);
+
+  // Choose a hero tile: show that group; choosing the same tile again clears it.
+  function selectAdminPaceFilter(key) {
+    setAdminPaceFilter((prev) => (prev === key ? null : key));
+    // The visible rows change, so drop any selection that could now be hidden
+    setBulkSelectedIds(new Set());
+    cancelBulkAction();
+    setRestoreConfirmId(null);
+  }
+
+  // Completed list: put a student marked Completed back to Active (with Undo).
+  async function handleReturnToActive(student) {
+    setRestoringId(student.id);
+    try {
+      await batchUpdate([student.id], { status: STUDENT_STATUS.ACTIVE });
+      await loadStudents();
+      setRestoreConfirmId(null);
+      setBulkToast({
+        message: `${student.first_name} ${student.last_name} returned to active.`,
+        kind: 'success',
+        undoFn: async () => {
+          try {
+            await batchUpdate([student.id], { status: STUDENT_STATUS.COMPLETED });
+            await loadStudents();
+            setBulkToast(null);
+          } catch (undoErr) {
+            setError(`Undo failed: ${undoErr.message}`);
+          }
+        },
+      });
+    } catch (err) {
+      setError(`Could not return the student to active: ${err.message}`);
+    } finally {
+      setRestoringId(null);
+    }
+  }
 
   // Admin sort column handler (first click uses useful default direction)
   const ADMIN_FIRST_CLICK = { name: 'asc', mitzvah_date: 'asc', tutor: 'asc', last_session: 'asc', progress: 'asc', pace: 'asc', status: 'asc' };
@@ -2113,6 +2256,90 @@ export default function Dashboard() {
     );
   }
 
+  // ---- Render helper: the Completed list shown when the Completed tile is chosen ----
+  function renderAdminCompletedPanel() {
+    if (adminCompletedRows.length === 0) {
+      return (
+        <div className="card">
+          <div className="empty-state">
+            <p>
+              {adminSearch
+                ? 'No students match your search.'
+                : 'No completed students in this cohort yet.'}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return (
+      <ul className="completed-list">
+        {adminCompletedRows.map(({ student: s, reason }) => {
+          const tutorLabel = s.family_tutored && !((s.student_tutors || []).length > 0 || s.tutor_id)
+            ? 'Family-tutored'
+            : tutorListLabel(s.student_tutors, s.tutor, '\u2014');
+          const datePassed = isMitzvahDatePassed(s, today);
+          const isConfirming = restoreConfirmId === s.id;
+          const isSaving = restoringId === s.id;
+
+          return (
+            <li key={s.id} className="completed-row">
+              <div className="completed-row-main">
+                <Link to={`/admin/students/${s.id}`} className="completed-row-name">
+                  {s.last_name}, {s.first_name}
+                </Link>
+                <div className="completed-row-meta">
+                  {s.mitzvah_date ? formatDate(s.mitzvah_date) : 'No date'}{' \u00B7 '}{tutorLabel}
+                </div>
+              </div>
+              <span className="badge badge-completed">{COMPLETED_REASON_LABELS[reason]}</span>
+              {reason === 'marked' && (
+                isConfirming ? (
+                  <div className="completed-row-action">
+                    <span className="completed-confirm-text">
+                      {datePassed
+                        ? 'Return to active? Their date has passed, so they will still count as Completed.'
+                        : 'Return to active?'}
+                    </span>
+                    <button
+                      className="btn btn-primary btn-small"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => handleReturnToActive(s)}
+                    >
+                      {isSaving ? 'Updating\u2026' : 'Yes, proceed'}
+                    </button>
+                    <button
+                      className="btn btn-outline btn-small"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => setRestoreConfirmId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="completed-row-action">
+                    <button
+                      className="btn btn-outline btn-small"
+                      type="button"
+                      onClick={() => setRestoreConfirmId(s.id)}
+                    >
+                      Return to active
+                    </button>
+                  </div>
+                )
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
   // ---- Render helper: admin cohort landing (elevated direction) ----
   function renderAdminLanding() {
     const selectedCohort = allCohorts.find((c) => c.id === adminCohortId);
@@ -2120,6 +2347,10 @@ export default function Dashboard() {
 
     const hasBulkSelection = bulkSelectedIds.size > 0;
     const allSelected = adminSortedStudents.length > 0 && bulkSelectedIds.size === adminSortedStudents.length;
+
+    // Tile filter chip: rows on screen, and the tile's own total when a search narrows them
+    const filterRowCount = adminPaceFilter === 'completed' ? adminCompletedRows.length : adminSortedStudents.length;
+    const filterTotal = adminPaceFilter ? (adminHeroData.paceCounts[adminPaceFilter] || 0) : 0;
 
     return (
       <div className="admin-landing">
@@ -2130,6 +2361,8 @@ export default function Dashboard() {
           avgDaysToMitzvah={adminHeroData.avgDays}
           readinessPct={adminHeroData.readinessPct}
           paceCounts={adminHeroData.paceCounts}
+          activePace={adminPaceFilter}
+          onSelectPace={adminLens === 'students' ? selectAdminPaceFilter : undefined}
         />
 
         {/* My children: shortcuts to the signed-in person's own children, when they have any */}
@@ -2330,13 +2563,31 @@ export default function Dashboard() {
         {/* ---- Students Lens (default) ---- */}
         {adminLens === 'students' && (
           <>
-            {adminSortedStudents.length === 0 ? (
+            {adminPaceFilter && (
+              <div className="admin-filter-bar" role="status">
+                <span>
+                  Showing: <strong>{PACE_PILL_LABELS[adminPaceFilter]}</strong>
+                  {' '}({adminSearch.trim() ? `${filterRowCount} of ${filterTotal}` : filterRowCount})
+                </span>
+                <button
+                  className="btn btn-outline btn-small"
+                  type="button"
+                  onClick={() => selectAdminPaceFilter(adminPaceFilter)}
+                >
+                  Clear filter
+                </button>
+              </div>
+            )}
+
+            {adminPaceFilter === 'completed' ? renderAdminCompletedPanel() : adminSortedStudents.length === 0 ? (
               <div className="card">
                 <div className="empty-state">
                   <p>
                     {adminSearch
                       ? 'No students match your search.'
-                      : 'No students in this cohort yet.'}
+                      : adminPaceFilter
+                        ? 'No students in this group.'
+                        : 'No students in this cohort yet.'}
                   </p>
                 </div>
               </div>

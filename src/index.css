@@ -9306,6 +9306,113 @@ select.input {
   border-bottom-color: var(--color-surface);
 }
 
+/* Clickable status tiles (button.cs-pill). Plain tiles stay as divs. */
+.cs-pill-button {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-pill-button {
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+}
+
+.cs-pill-button:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.cs-pill-button:focus-visible {
+  outline: 2px solid var(--focus-ring-on-dark);
+  outline-offset: 2px;
+}
+
+/* The tile whose students are being shown */
+.cs-pill-button.cs-pill-active,
+.cs-pill-button.cs-pill-active:hover {
+  background: rgba(198, 146, 42, 0.2);
+  border-color: var(--color-accent);
+}
+
+/* "Showing: On track (7) · Clear filter" bar above the student list */
+.admin-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* Completed list: students behind the Completed tile */
+.completed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.completed-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+.completed-row:first-child {
+  border-top: 0;
+}
+
+.completed-row-main {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.completed-row-name {
+  font-weight: 600;
+}
+
+.completed-row-meta {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.completed-row-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.completed-confirm-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .completed-row {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .completed-row-action {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
 /* Info section */
 .cs-info {
   position: relative;
