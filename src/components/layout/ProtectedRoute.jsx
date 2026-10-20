@@ -19,7 +19,7 @@ const ROLE_SYNC_GRACE_PERIOD = 8_000;
  * currently viewing as another, they get an offer to switch instead of a dead end.
  */
 export default function ProtectedRoute({ allowedRoles, children }) {
-  const { user, role, roles, switchRole, loading, signOut } = useAuth();
+  const { user, profile, role, roles, switchRole, loading, signOut } = useAuth();
   const [roleTimedOut, setRoleTimedOut] = useState(false);
 
   // Give a short grace period for `role` to arrive after `loading` clears
@@ -47,6 +47,30 @@ export default function ProtectedRoute({ allowedRoles, children }) {
   // Not authenticated
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // A deactivated account. The real lock is on the sign-in itself; this screen covers a
+  // session that was already open when the account was deactivated.
+  if (profile?.is_active === false) {
+    return (
+      <div className="auth-error-screen">
+        <div className="auth-error-card">
+          <h2 className="auth-error-title">Your account is inactive</h2>
+          <p className="auth-error-message">
+            Please contact the B&rsquo;nai Mitzvah coordinator to restore your access.
+          </p>
+          <div className="auth-error-actions">
+            <button
+              type="button"
+              className="auth-error-signout"
+              onClick={() => signOut()}
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Authenticated but role not yet loaded (profile might still be syncing)

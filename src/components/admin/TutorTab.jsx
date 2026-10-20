@@ -849,8 +849,9 @@ export default function TutorTab() {
           {deactivateError && <div className="alert alert-error">{deactivateError}</div>}
 
           <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
-            This will deactivate <strong>{deactivateTarget.display_name}</strong>. They will no
-            longer appear in tutor assignment dropdowns or on the active tutors list.
+            This will deactivate <strong>{deactivateTarget.display_name}</strong>. They will be
+            signed out and will not be able to sign in. They will no longer appear in tutor
+            assignment dropdowns or on the active tutors list.
           </p>
 
           {deactivateTarget.sessionCount > 0 && (

@@ -630,6 +630,11 @@ export default function UsersTab() {
 
   // ---- Filter profiles ----
   const inactiveCount = profiles.filter((p) => p.is_active === false).length;
+
+  // Deactivate dialog: a tutor with active students must have them reassigned first
+  const deactivateStudentCount = deactivateTarget && getProfileRoles(deactivateTarget).includes('tutor')
+    ? countActiveAssignments(deactivateTarget.id)
+    : 0;
   const filtered = profiles.filter((p) => {
     if (p.is_active === false && !showInactive) return false;
     if (!searchQuery) return true;
@@ -906,12 +911,9 @@ export default function UsersTab() {
                 .filter((r) => r !== 'admin')
                 .map((r) => ({ role: r, ...getLinkageInfo(p, r) }));
               const isInactive = p.is_active === false;
-              // Same rules the database enforces: not you, no admin or tutor role, not linked to a record
-              const canDeactivate = !isInactive
-                && !isCurrentUser
-                && !roles.includes('admin')
-                && !roles.includes('tutor')
-                && unlinkableKinds.length === 0;
+              // Anyone but you. The database also refuses the last active administrator
+              // and a tutor who still has active students, with a plain message.
+              const canDeactivate = !isInactive && !isCurrentUser;
 
               return (
                 <tr key={p.id}>
@@ -1161,7 +1163,7 @@ export default function UsersTab() {
                 className="btn btn-primary"
                 style={{ backgroundColor: 'var(--color-error)' }}
                 onClick={handleDeactivate}
-                disabled={!deactivateConfirmChecked || deactivating}
+                disabled={!deactivateConfirmChecked || deactivating || deactivateStudentCount > 0}
               >
                 {deactivating ? 'Deactivating...' : 'Deactivate Account'}
               </button>
@@ -1170,15 +1172,23 @@ export default function UsersTab() {
         >
           {deactivateError && <div className="alert alert-error">{deactivateError}</div>}
 
+          {deactivateStudentCount > 0 && (
+            <div className="alert alert-error">
+              {deactivateTarget.display_name || deactivateTarget.email} is a tutor for {deactivateStudentCount} active
+              student{deactivateStudentCount !== 1 ? 's' : ''}. Reassign them before deactivating this account.
+            </div>
+          )}
+
           <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
             This will deactivate <strong>{deactivateTarget.display_name || deactivateTarget.email}</strong>
-            {deactivateTarget.display_name ? ` (${deactivateTarget.email})` : ''}. The account will be
-            hidden from this list.
+            {deactivateTarget.display_name ? ` (${deactivateTarget.email})` : ''}. They will be signed out
+            and will not be able to sign in. The account is hidden from this list.
           </p>
 
           <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>
-            This does not stop them from signing in, and nothing is deleted. You can reactivate the
-            account at any time using &ldquo;Show inactive accounts&rdquo;.
+            Nothing is deleted: their sessions, notes, and assignments stay attributed to them. You can
+            reactivate the account at any time using &ldquo;Show inactive accounts&rdquo;, and it comes
+            back with the same roles.
           </p>
 
           <label className="checkbox-row" style={{ marginTop: 'var(--space-4)' }}>
