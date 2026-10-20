@@ -848,7 +848,7 @@ a:hover {
     padding: 6px 4px;
     color: var(--color-text-secondary);
     text-decoration: none;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: var(--weight-medium);
     letter-spacing: 0.01em;
     -webkit-tap-highlight-color: transparent;
@@ -13473,4 +13473,25 @@ select.input {
   .ceremonial-hero-celebrate {
     max-width: none;
   }
+}
+
+
+/* ==========================================================================
+   ACCESSIBILITY: tap area for the phone-card checkbox, and a visible keyboard
+   focus outline on the help icon (its base rule removes the outline).
+   ========================================================================== */
+
+.bulk-check-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.help-tip-icon:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }

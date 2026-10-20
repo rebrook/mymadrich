@@ -9,6 +9,7 @@
  *   login: compact footer (no emblem, no Chizuk Amuno, no Supabase,
  *          no version/build — those live in the brand panel already).
  */
+import { Link } from 'react-router-dom';
 import emblemPurple from '../../assets/chizuk-emblem-purple.png';
 
 const version = import.meta.env.VITE_APP_VERSION || '0.0.0';
@@ -47,16 +48,16 @@ function AppFooter() {
           Congregation &amp; Schools
         </span>
         <Sep />
-        <a href="/privacy">Privacy</a>
+        <Link to="/privacy">Privacy</Link>
         <Sep />
-        <a href="/terms">Terms</a>
+        <Link to="/terms">Terms</Link>
       </div>
       <div className="app-footer-row app-footer-maker">
         <span>Powered by Claude</span>
         <Sep />
         <span>Supabase</span>
         <Sep />
-        <a href="/about">About MyMadrich</a>
+        <Link to="/about">About MyMadrich</Link>
         <Sep />
         <span>Questions? <a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a></span>
         <Sep />
@@ -77,14 +78,14 @@ function LoginFooter() {
       <div className="app-footer-row app-footer-brand">
         <span>Designed &amp; Built by <strong>Brook Creative LLC</strong></span>
         <Sep />
-        <a href="/privacy">Privacy</a>
+        <Link to="/privacy">Privacy</Link>
         <Sep />
-        <a href="/terms">Terms</a>
+        <Link to="/terms">Terms</Link>
       </div>
       <div className="app-footer-row app-footer-maker">
         <span>Powered by Claude</span>
         <Sep />
-        <a href="/about">About MyMadrich</a>
+        <Link to="/about">About MyMadrich</Link>
         <Sep />
         <span>Questions? <a href="mailto:hello@mymadrich.com">hello@mymadrich.com</a></span>
       </div>

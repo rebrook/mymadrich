@@ -2856,13 +2856,16 @@ export default function Dashboard() {
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStudentId(s.id); } }}
                       >
                         <div className="readiness-card-top">
-                          <input
-                            type="checkbox"
-                            className="bulk-checkbox"
-                            checked={isChecked}
-                            onChange={(e) => { e.stopPropagation(); toggleBulkSelect(s.id); }}
-                            aria-label={`Select ${s.first_name} ${s.last_name}`}
-                          />
+                          {/* The label gives the checkbox a 44px tap area; stopPropagation keeps a tap here from opening the card */}
+                          <label className="bulk-check-hit" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="bulk-checkbox"
+                              checked={isChecked}
+                              onChange={(e) => { e.stopPropagation(); toggleBulkSelect(s.id); }}
+                              aria-label={`Select ${s.first_name} ${s.last_name}`}
+                            />
+                          </label>
                           <span className="student-avatar" aria-hidden="true">
                             {getInitials(s.first_name, s.last_name)}
                           </span>
