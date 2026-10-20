@@ -475,9 +475,9 @@ export default function RoadToBimah() {
           if (studentIds.length > 0) {
             const { data: studentRows } = await supabase
               .from('students')
-              .select('id, first_name, last_name, hebrew_name, student_guardians(name, email, is_primary)')
+              .select('id, first_name, last_name, hebrew_name, status, student_guardians(name, email, is_primary)')
               .in('id', studentIds)
-              .in('status', ['active', 'deferred'])
+              .in('status', ['active', 'deferred', 'completed'])
               .order('last_name');
 
             const rows = (studentRows || []).map((s) => ({
@@ -496,7 +496,9 @@ export default function RoadToBimah() {
             if (!targetStudentId || !rows.some((s) => s.id === targetStudentId)) {
               const stored = localStorage.getItem('mymadrich:family_selected_student');
               const validStored = stored && rows.some((s) => s.id === stored);
-              targetStudentId = validStored ? stored : rows[0]?.id;
+              // With several children, open on one still in progress rather than a completed sibling
+              const firstInProgress = rows.find((s) => s.status !== 'completed') || rows[0];
+              targetStudentId = validStored ? stored : firstInProgress?.id;
             }
           }
         }

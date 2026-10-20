@@ -322,7 +322,9 @@ export default function Dashboard() {
           student_guardians(name, email, is_primary),
           student_tutors(tutor_id, created_at, tutor:profiles!tutor_id(id, display_name, email))
         `)
-        .in('status', ['active', 'deferred'])
+        // Families keep seeing a child after the mitzvah (to look back on it); staff views list
+        // only students still being worked with.
+        .in('status', isStudentOrParent ? ['active', 'deferred', 'completed'] : ['active', 'deferred'])
         .order('last_name');
       if (scopeIds) studentQuery = studentQuery.in('id', scopeIds);
       const { data, error: err } = await studentQuery;
@@ -336,7 +338,9 @@ export default function Dashboard() {
       if (data && data.length >= 1 && isStudentOrParent) {
         const stored = localStorage.getItem('mymadrich:family_selected_student');
         const validStored = stored && data.some((s) => s.id === stored);
-        setSelectedStudentId(validStored ? stored : data[0].id);
+        // With several children, open on one still in progress rather than a completed sibling
+        const firstInProgress = data.find((s) => s.status !== 'completed') || data[0];
+        setSelectedStudentId(validStored ? stored : firstInProgress.id);
       }
     } catch (err) {
       setError(err.message);
@@ -3019,6 +3023,18 @@ export default function Dashboard() {
       {isShabbat && <ShabbatBanner />}
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {/* Family view with no student to show: never leave the page blank */}
+      {isStudentOrParent && !loadingStudents && !error && students.length === 0 && (
+        <div className="card">
+          <div className="empty-state">
+            <p>
+              We don&rsquo;t see a student linked to your account yet. Please contact the
+              B&rsquo;nai Mitzvah coordinator to get set up.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Alerts panel (tutor: always; admin: only when viewing a student) */}
       {((role === ROLES.TUTOR) || (role === ROLES.ADMIN && selectedStudentId)) && !loadingStudents && students.length > 0 && (
