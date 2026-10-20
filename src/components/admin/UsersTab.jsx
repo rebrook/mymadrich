@@ -62,6 +62,18 @@ export default function UsersTab() {
   // Copy feedback
   const [copiedId, setCopiedId] = useState(null);
 
+  // Inactive accounts: hidden unless this is ticked (mirrors the Tutors tab toggle)
+  const [showInactive, setShowInactive] = useState(false);
+
+  // Deactivate confirm modal state
+  const [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [deactivateConfirmChecked, setDeactivateConfirmChecked] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState(null);
+
+  // Reactivate failure (shown above the table; the page-level error would replace the whole tab)
+  const [reactivateError, setReactivateError] = useState(null);
+
   // Manage roles dialog state
   const [manageId, setManageId] = useState(null); // person being edited
   const [manageWanted, setManageWanted] = useState([]); // roles ticked in the dialog
@@ -78,7 +90,7 @@ export default function UsersTab() {
       const [profileRes, studentRes, guardianRes, inviteRes, roleRes, assignRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, email, display_name, role, phone, created_at, updated_at')
+          .select('id, email, display_name, role, phone, created_at, updated_at, is_active')
           .order('created_at', { ascending: false }),
         supabase
           .from('students')
@@ -317,6 +329,51 @@ export default function UsersTab() {
       await fetchAll();
     } catch (err) {
       setError(`Failed to link: ${err.message}`);
+    }
+  }
+
+  // ---- Deactivate / Reactivate account (soft: nothing is deleted) ----
+
+  function openDeactivateModal(profile) {
+    setDeactivateTarget(profile);
+    setDeactivateConfirmChecked(false);
+    setDeactivateError(null);
+  }
+
+  function closeDeactivateModal() {
+    setDeactivateTarget(null);
+    setDeactivateConfirmChecked(false);
+    setDeactivateError(null);
+  }
+
+  async function handleDeactivate() {
+    if (!deactivateTarget || !deactivateConfirmChecked) return;
+    setDeactivating(true);
+    setDeactivateError(null);
+    try {
+      const { error: err } = await supabase.rpc('deactivate_user', {
+        p_profile_id: deactivateTarget.id,
+      });
+      if (err) throw err;
+      closeDeactivateModal();
+      await fetchAll({ silent: true });
+    } catch (err) {
+      setDeactivateError(err.message);
+    } finally {
+      setDeactivating(false);
+    }
+  }
+
+  async function handleReactivate(profile) {
+    setReactivateError(null);
+    try {
+      const { error: err } = await supabase.rpc('activate_user', {
+        p_profile_id: profile.id,
+      });
+      if (err) throw err;
+      await fetchAll({ silent: true });
+    } catch (err) {
+      setReactivateError(`Could not reactivate ${profile.display_name || profile.email}: ${err.message}`);
     }
   }
 
@@ -572,7 +629,9 @@ export default function UsersTab() {
   }
 
   // ---- Filter profiles ----
+  const inactiveCount = profiles.filter((p) => p.is_active === false).length;
   const filtered = profiles.filter((p) => {
+    if (p.is_active === false && !showInactive) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const name = (p.display_name || '').toLowerCase();
@@ -788,6 +847,23 @@ export default function UsersTab() {
         </div>
       )}
 
+      {inactiveCount > 0 && (
+        <label className="checkbox-row" style={{ marginTop: 'var(--space-2)' }}>
+          <input
+            type="checkbox"
+            checked={showInactive}
+            onChange={(e) => setShowInactive(e.target.checked)}
+          />
+          <span>Show inactive accounts ({inactiveCount})</span>
+        </label>
+      )}
+
+      {reactivateError && (
+        <div className="alert alert-error" role="alert" style={{ marginTop: 'var(--space-3)' }}>
+          {reactivateError}
+        </div>
+      )}
+
       {/* Users table */}
       {profiles.length === 0 ? (
         <div className="empty-state">
@@ -829,6 +905,13 @@ export default function UsersTab() {
               const linkLines = roles
                 .filter((r) => r !== 'admin')
                 .map((r) => ({ role: r, ...getLinkageInfo(p, r) }));
+              const isInactive = p.is_active === false;
+              // Same rules the database enforces: not you, no admin or tutor role, not linked to a record
+              const canDeactivate = !isInactive
+                && !isCurrentUser
+                && !roles.includes('admin')
+                && !roles.includes('tutor')
+                && unlinkableKinds.length === 0;
 
               return (
                 <tr key={p.id}>
@@ -838,6 +921,9 @@ export default function UsersTab() {
                     </span>
                     {isCurrentUser && (
                       <span className="form-hint" style={{ marginLeft: 'var(--space-2)' }}>(you)</span>
+                    )}
+                    {isInactive && (
+                      <span className="badge badge-archived" style={{ marginLeft: 'var(--space-2)' }}>Inactive</span>
                     )}
                   </td>
                   <td data-label="Email">{p.email}</td>
@@ -910,6 +996,24 @@ export default function UsersTab() {
                           {multiRole ? (k === 'student' ? 'Unlink student' : 'Unlink guardian') : 'Unlink'}
                         </button>
                       ))}
+                      {canDeactivate && (
+                        <button
+                          className="btn btn-small btn-danger-outline"
+                          onClick={() => openDeactivateModal(p)}
+                          aria-label={`Deactivate ${p.display_name || p.email}`}
+                        >
+                          Deactivate
+                        </button>
+                      )}
+                      {isInactive && (
+                        <button
+                          className="btn btn-small btn-outline"
+                          onClick={() => handleReactivate(p)}
+                          aria-label={`Reactivate ${p.display_name || p.email}`}
+                        >
+                          Reactivate
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1042,6 +1146,49 @@ export default function UsersTab() {
               </select>
             )}
           </div>
+        </Modal>
+      )}
+
+      {/* Deactivate Confirm Modal */}
+      {deactivateTarget && (
+        <Modal
+          title="Deactivate Account"
+          onClose={closeDeactivateModal}
+          footer={
+            <>
+              <button className="btn btn-outline" onClick={closeDeactivateModal}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ backgroundColor: 'var(--color-error)' }}
+                onClick={handleDeactivate}
+                disabled={!deactivateConfirmChecked || deactivating}
+              >
+                {deactivating ? 'Deactivating...' : 'Deactivate Account'}
+              </button>
+            </>
+          }
+        >
+          {deactivateError && <div className="alert alert-error">{deactivateError}</div>}
+
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
+            This will deactivate <strong>{deactivateTarget.display_name || deactivateTarget.email}</strong>
+            {deactivateTarget.display_name ? ` (${deactivateTarget.email})` : ''}. The account will be
+            hidden from this list.
+          </p>
+
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>
+            This does not stop them from signing in, and nothing is deleted. You can reactivate the
+            account at any time using &ldquo;Show inactive accounts&rdquo;.
+          </p>
+
+          <label className="checkbox-row" style={{ marginTop: 'var(--space-4)' }}>
+            <input
+              type="checkbox"
+              checked={deactivateConfirmChecked}
+              onChange={(e) => setDeactivateConfirmChecked(e.target.checked)}
+            />
+            <span>I understand this account will be deactivated</span>
+          </label>
         </Modal>
       )}
 
