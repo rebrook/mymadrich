@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import MenorahReadiness from '../domain/MenorahReadiness';
 import { emblemGold } from '../../assets/emblem';
 import { READING_TYPE, milestoneForReadiness } from '../../utils/constants';
-import { tutorName } from '../../utils/people';
+import { tutorName, mitzvahLabel } from '../../utils/people';
 
 /**
  * CeremonialHero — the elevated student/parent hero panel.
@@ -11,6 +11,11 @@ import { tutorName } from '../../utils/people';
  * Three grid areas: content (left), menorah (right), footer (chip/date).
  * On mobile (≤768px), content stacks above a footer row where the menorah
  * sits beside the date/readiness info.
+ *
+ * `celebration` (a completed child, family view): the same panel, but it celebrates
+ * instead of measuring. No percent, no menorah progress, no "ready to begin". The
+ * wording matches the family report: "Mazal tov to {first name} and family", the
+ * thank-you line, and the date, with the type (Bar/Bat/B'nai Mitzvah) from the record.
  */
 export default function CeremonialHero({
   student,
@@ -19,6 +24,7 @@ export default function CeremonialHero({
   masteryPct = 0,
   cohortName,
   isFullCompletion = false,
+  celebration = false,
 }) {
   if (!student) return null;
 
@@ -34,6 +40,7 @@ export default function CeremonialHero({
   const mitzvahDateFormatted = student.mitzvah_date
     ? formatMitzvahDate(student.mitzvah_date)
     : null;
+  const celebrationLabel = mitzvahLabel(student.mitzvah_type);
 
   // Countdown
   let chipText = null;
@@ -106,29 +113,61 @@ export default function CeremonialHero({
             </>
           )}
         </div>
+
+        {celebration && (
+          <div className="ceremonial-hero-celebrate">
+            <p className="ceremonial-hero-celebrate-title">
+              {firstName ? `Mazal tov to ${firstName} and family` : 'Mazal tov to the family'}
+            </p>
+            {/* "mazal tov" in Hebrew, as on the family report; to be confirmed with clergy */}
+            <p className="ceremonial-hero-celebrate-he" dir="rtl" lang="he">
+              {'\u05DE\u05D6\u05DC \u05D8\u05D5\u05D1'}
+            </p>
+            {mitzvahDateFormatted && (
+              <p className="ceremonial-hero-celebrate-blurb">
+                Thank you for letting us be part of this journey.{' '}
+                {firstName ? `${firstName}\u2019s ${celebrationLabel}` : `The ${celebrationLabel}`}
+                {' '}was celebrated on {mitzvahDateFormatted}.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Grid area: menorah */}
       <div className="ceremonial-hero-menorah">
-        <MenorahReadiness
-          percent={masteryPct}
-          size={152}
-          emblemSrc={emblemGold}
-          sub="Lighting the way to the bimah"
-        />
-        {(() => {
-          const stage = milestoneForReadiness(masteryPct);
-          return (
-            <div className="ceremonial-hero-stage">
-              <span className="ceremonial-hero-stage-he" dir="rtl" lang="he">
-                {stage.he}
-              </span>
-              <span className="ceremonial-hero-stage-en">
-                {stage.en}
-              </span>
-            </div>
-          );
-        })()}
+        {celebration ? (
+          <img
+            className="ceremonial-hero-emblem"
+            src={emblemGold}
+            alt=""
+            width="132"
+            height="132"
+            draggable="false"
+          />
+        ) : (
+          <>
+            <MenorahReadiness
+              percent={masteryPct}
+              size={152}
+              emblemSrc={emblemGold}
+              sub="Lighting the way to the bimah"
+            />
+            {(() => {
+              const stage = milestoneForReadiness(masteryPct);
+              return (
+                <div className="ceremonial-hero-stage">
+                  <span className="ceremonial-hero-stage-he" dir="rtl" lang="he">
+                    {stage.he}
+                  </span>
+                  <span className="ceremonial-hero-stage-en">
+                    {stage.en}
+                  </span>
+                </div>
+              );
+            })()}
+          </>
+        )}
         {/* "View the full journey" link — sits below stage in menorah column */}
         <Link
           to={`/road-to-the-bimah?student=${student.id}`}
@@ -155,7 +194,7 @@ export default function CeremonialHero({
           {/* Mobile date block (visible only on mobile, beside menorah) */}
           <div className="ceremonial-hero-mobile-date">
             <div className="ceremonial-hero-mobile-date-d">
-              {masteryPct}% ready {'\u00B7'} {chipText}
+              {celebration ? chipText : `${masteryPct}% ready \u00B7 ${chipText}`}
             </div>
             {mitzvahDateFormatted && (
               <div className="ceremonial-hero-mobile-date-l">{mitzvahDateFormatted}</div>

@@ -8,9 +8,12 @@ import {
   milestoneForReadiness,
   DVAR_STAGE,
   getDvarFamilyLine,
+  FAMILY_VISIBLE_STATUSES,
+  STAFF_VISIBLE_STATUSES,
 } from '../utils/constants';
 import { calculatePace, calculateElementsSummary, formatTargetDate, formatWeeksRemaining, PACE_STATUS, PACE_COLORS, getPaceRationale } from '../utils/paceCalculations';
 import { tutorName, tutorListLabel } from '../utils/people';
+import { pickDefaultChild, isChildCompleted } from '../utils/familyChildren';
 import { formatDateCompact, formatDateShort, formatDayDate, formatSessionTime, formatSessionTimeRange, getTodayDateString, addDaysToDateString } from '../utils/datetime';
 import { buildNudgeTutorMailto, buildCaseloadNudgeMailto, resolvePrimaryGuardianContact } from '../utils/mailto';
 import { masteryCounts, masteryCountsByType, masteryPercent, formatMasterySummary } from '../utils/mastery';
@@ -323,8 +326,8 @@ export default function Dashboard() {
           student_tutors(tutor_id, created_at, tutor:profiles!tutor_id(id, display_name, email))
         `)
         // Families keep seeing a child after the mitzvah (to look back on it); staff views list
-        // only students still being worked with.
-        .in('status', isStudentOrParent ? ['active', 'deferred', 'completed'] : ['active', 'deferred'])
+        // only students still being worked with. One shared list per audience (constants.js).
+        .in('status', isStudentOrParent ? FAMILY_VISIBLE_STATUSES : STAFF_VISIBLE_STATUSES)
         .order('last_name');
       if (scopeIds) studentQuery = studentQuery.in('id', scopeIds);
       const { data, error: err } = await studentQuery;
@@ -336,11 +339,10 @@ export default function Dashboard() {
       // from localStorage, or fall back to first child alphabetically.
       // The list is already sorted by last_name from the query.
       if (data && data.length >= 1 && isStudentOrParent) {
+        // One shared rule (familyChildren.js): the last-viewed child if still in progress, else the
+        // in-progress child with the soonest date, else the most recent completed child.
         const stored = localStorage.getItem('mymadrich:family_selected_student');
-        const validStored = stored && data.some((s) => s.id === stored);
-        // With several children, open on one still in progress rather than a completed sibling
-        const firstInProgress = data.find((s) => s.status !== 'completed') || data[0];
-        setSelectedStudentId(validStored ? stored : firstInProgress.id);
+        setSelectedStudentId(pickDefaultChild(data, stored));
       }
     } catch (err) {
       setError(err.message);
@@ -713,6 +715,17 @@ export default function Dashboard() {
           .limit(1);
         const firstSessionDate = firstSessData?.[0]?.session_date || null;
 
+        // Look-back figure for a completed child in the family view (the list above is capped at 5)
+        let sessionCount = null;
+        if (isStudentOrParent && isChildCompleted(student)) {
+          const { count: sessTotal, error: cntErr } = await supabase
+            .from('sessions')
+            .select('id', { count: 'exact', head: true })
+            .eq('student_id', selectedStudentId);
+          if (cntErr) throw cntErr;
+          sessionCount = sessTotal || 0;
+        }
+
         // Compute pace
         const paceResult = calculatePace({
           student,
@@ -739,6 +752,8 @@ export default function Dashboard() {
 
         setDashData({
           student,
+          firstSessionDate,
+          sessionCount,
           readings: readings || [],
           readingGroups,
           elementGroups,
@@ -765,6 +780,8 @@ export default function Dashboard() {
 
   // ---- Derived values ----
   const showSelector = role === ROLES.ADMIN || role === ROLES.TUTOR || students.length > 1;
+  // Family view of a completed child: celebrate and look back instead of showing a to-do list
+  const isCelebration = isStudentOrParent && Boolean(dashData?.student) && isChildCompleted(dashData.student);
   const daysToMitzvah = dashData?.student?.mitzvah_date
     ? getDaysToMitzvah(dashData.student.mitzvah_date)
     : null;
@@ -1445,6 +1462,63 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+    );
+  }
+
+  // ---- Render helper: look-back for a completed child (family view) ----
+  // Mirrors the Highlights block of the family report: only facts on file, nothing
+  // about progress, and nothing at all when there is nothing to show.
+  function renderLookBack() {
+    const student = dashData.student;
+    const tName = tutorName(student.tutor, null);
+    const sessionCount = dashData.sessionCount || 0;
+    const firstSession = dashData.firstSessionDate
+      ? new Date(`${dashData.firstSessionDate}T00:00:00`).toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : null;
+
+    if (!tName && sessionCount === 0 && !firstSession && !cohortName) return null;
+
+    return (
+      <section className="sr-section" aria-labelledby="lookback-heading">
+        <h2 className="sr-h2" id="lookback-heading">Highlights</h2>
+        <div className="sr-highlights">
+          {tName && (
+            <div className="sr-highlight">
+              <span className="sr-hl-label">Tutor</span>
+              <span className="sr-hl-value">{tName}</span>
+            </div>
+          )}
+          {sessionCount > 0 && (
+            <div className="sr-highlight">
+              <span className="sr-hl-label">Sessions completed</span>
+              <span className="sr-hl-value">{sessionCount}</span>
+            </div>
+          )}
+          {firstSession && (
+            <div className="sr-highlight">
+              <span className="sr-hl-label">First session</span>
+              <span className="sr-hl-value">{firstSession}</span>
+            </div>
+          )}
+          {cohortName && (
+            <div className="sr-highlight">
+              <span className="sr-hl-label">Cohort</span>
+              <span className="sr-hl-value">{cohortName}</span>
+            </div>
+          )}
+        </div>
+        {sessionCount > 0 && (
+          <p className="lookback-actions">
+            <Link to={`/sessions?student=${student.id}`} className="btn btn-outline btn-small">
+              View session history
+            </Link>
+          </p>
+        )}
+      </section>
     );
   }
 
@@ -3125,6 +3199,7 @@ export default function Dashboard() {
               masteryPct={masteryPct}
               cohortName={cohortName}
               isFullCompletion={isFullCompletion}
+              celebration={isCelebration}
             />
           ) : (
             <div className={isFullCompletion ? 'hero-wrapper-complete' : undefined}>
@@ -3138,7 +3213,7 @@ export default function Dashboard() {
           )}
 
           {/* Student/parent welcome line (v2 Section 14.3) */}
-          {isStudentOrParent && !welcomeDismissed && (
+          {isStudentOrParent && !welcomeDismissed && !isCelebration && (
             <div className="welcome-line">
               <p className="welcome-line-text">
                 This is where you'll follow {dashData.student.first_name}'s journey to the bimah, updated after every lesson.
@@ -3157,10 +3232,16 @@ export default function Dashboard() {
             </div>
           )}
 
-          {renderMilestoneBanners()}
-          {renderStatTiles()}
-          {renderDvarTorahLine()}
-          {renderDashboardContent()}
+          {isCelebration ? (
+            renderLookBack()
+          ) : (
+            <>
+              {renderMilestoneBanners()}
+              {renderStatTiles()}
+              {renderDvarTorahLine()}
+              {renderDashboardContent()}
+            </>
+          )}
         </>
       )}
 

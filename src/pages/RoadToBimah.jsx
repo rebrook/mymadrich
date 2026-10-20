@@ -13,12 +13,14 @@ import {
   DVAR_STAGE,
   getDvarStage,
   getDvarFamilyLine,
+  FAMILY_VISIBLE_STATUSES,
 } from '../utils/constants';
 import {
   calculatePace,
   calculateElementsSummary,
 } from '../utils/paceCalculations';
 import { tutorName, mitzvahLabel, mitzvahPronoun } from '../utils/people';
+import { pickDefaultChild, isChildCompleted } from '../utils/familyChildren';
 import { formatSessionTime } from '../utils/datetime';
 import usePageTitle from '../hooks/usePageTitle';
 import { limitBenchmarksToVisible } from '../utils/scope';
@@ -114,6 +116,7 @@ function buildJourneyNodes({
   primaryReading,
   benchmarks,
   dvarTorahStage,
+  celebrate = false,
 }) {
   const nodes = [];
   const today = new Date();
@@ -170,19 +173,23 @@ function buildJourneyNodes({
     todayDetail += ` ${elementsSummary.masteredCount} of ${elementsSummary.totalCount} service elements learned.`;
   }
 
-  nodes.push({
-    type: 'today',
-    state: 'now',
-    eyebrow: `Today \u00B7 ${todayLabel}`,
-    title: currentStage.en,
-    titleHe: currentStage.he,
-    detail: todayDetail,
-  });
+  // A completed child has no "today" progress node: the journey is told in the past tense.
+  if (!celebrate) {
+    nodes.push({
+      type: 'today',
+      state: 'now',
+      eyebrow: `Today \u00B7 ${todayLabel}`,
+      title: currentStage.en,
+      titleHe: currentStage.he,
+      detail: todayDetail,
+    });
+  }
 
   // 3b. D'var Torah stage (current-state indicator, not date-sorted)
   //     Pinned to the TODAY position. Suppressed for 'not_started'.
   //     'delivered' renders as state: 'done'.
-  if (dvarTorahStage && dvarTorahStage !== DVAR_STAGE.NOT_STARTED) {
+  if (dvarTorahStage && dvarTorahStage !== DVAR_STAGE.NOT_STARTED
+      && (!celebrate || dvarTorahStage === DVAR_STAGE.DELIVERED)) {
     const stageObj = getDvarStage(dvarTorahStage);
     const familyLine = getDvarFamilyLine(dvarTorahStage, firstName);
     const isDelivered = dvarTorahStage === DVAR_STAGE.DELIVERED;
@@ -200,7 +207,7 @@ function buildJourneyNodes({
   // 4. Next session (if scheduled)
   const nextDate = student?.next_session_date;
   const nextTime = student?.next_session_time;
-  if (nextDate) {
+  if (nextDate && !celebrate) {
     const nextD = new Date(nextDate + 'T00:00:00');
     if (nextD >= today) {
       const timeStr = nextTime ? formatSessionTime(nextTime) : '';
@@ -223,7 +230,7 @@ function buildJourneyNodes({
 
   // 5. Projected future stage crossings
   const currentStageIndex = MILESTONE_STAGES.indexOf(currentStage);
-  if (currentStageIndex >= 0 && currentStageIndex < 6 && pace && pace.projectedCompletionDate) {
+  if (!celebrate && currentStageIndex >= 0 && currentStageIndex < 6 && pace && pace.projectedCompletionDate) {
     // Project when remaining stages might be reached based on current velocity
     const remainingStages = MILESTONE_STAGES.slice(currentStageIndex + 1).filter(
       (s) => s.key !== 'hanachah' && s.key !== 'mukhan'
@@ -315,6 +322,14 @@ function buildJourneyNodes({
 
     nodes.length = 0;
     nodes.push(...beforeToday, ...afterToday);
+  } else if (celebrate) {
+    // No "today" node for a completed child: keep the meetings in date order after the earlier milestones
+    const meetings = nodes
+      .filter((n) => n.type === 'benchmark')
+      .sort((a, b) => (a.sortDate || '').localeCompare(b.sortDate || ''));
+    const rest = nodes.filter((n) => n.type !== 'benchmark');
+    nodes.length = 0;
+    nodes.push(...rest, ...meetings);
   }
 
   // 7. Bimah destination (always shown, always last)
@@ -475,9 +490,9 @@ export default function RoadToBimah() {
           if (studentIds.length > 0) {
             const { data: studentRows } = await supabase
               .from('students')
-              .select('id, first_name, last_name, hebrew_name, status, student_guardians(name, email, is_primary)')
+              .select('id, first_name, last_name, hebrew_name, status, mitzvah_date, student_guardians(name, email, is_primary)')
               .in('id', studentIds)
-              .in('status', ['active', 'deferred', 'completed'])
+              .in('status', FAMILY_VISIBLE_STATUSES)
               .order('last_name');
 
             const rows = (studentRows || []).map((s) => ({
@@ -494,11 +509,9 @@ export default function RoadToBimah() {
             // If URL param is present but not in the parent's children
             // (stale link, hand-edited URL), fall back gracefully.
             if (!targetStudentId || !rows.some((s) => s.id === targetStudentId)) {
+              // One shared rule (familyChildren.js), the same one the Dashboard uses
               const stored = localStorage.getItem('mymadrich:family_selected_student');
-              const validStored = stored && rows.some((s) => s.id === stored);
-              // With several children, open on one still in progress rather than a completed sibling
-              const firstInProgress = rows.find((s) => s.status !== 'completed') || rows[0];
-              targetStudentId = validStored ? stored : firstInProgress?.id;
+              targetStudentId = pickDefaultChild(rows, stored);
             }
           }
         }
@@ -628,6 +641,9 @@ export default function RoadToBimah() {
     ? Math.round((masteredVerses / totalVerses) * 100)
     : 0;
   const currentStage = milestoneForReadiness(masteryPct);
+  // A completed child: celebrate and look back instead of showing progress toward the date
+  const celebrate = Boolean(student) && isChildCompleted(student);
+  const celebrationLabel = student ? mitzvahLabel(student.mitzvah_type) : '';
 
   const primaryReading = readings.find((r) => r.reading_type === READING_TYPE.TORAH)
     || readings[0]
@@ -658,20 +674,22 @@ export default function RoadToBimah() {
       primaryReading,
       benchmarks,
       dvarTorahStage: student.dvar_torah_stage,
+      celebrate,
     });
-  }, [student, sessions, masteryPct, masteredVerses, totalVerses, elementsSummary, pace, benchmarks]);
+  }, [student, sessions, masteryPct, masteredVerses, totalVerses, elementsSummary, pace, benchmarks, celebrate]);
 
   // Calculate the --lit percentage for the gold rail
   // It fills from the top (first node) down to the "today" node
   const litPercent = useMemo(() => {
     if (journeyNodes.length === 0) return 0;
+    if (celebrate) return 100; // everything on the way is behind them
     const nowIndex = journeyNodes.findIndex((n) => n.state === 'now');
     if (nowIndex < 0) return 0;
     // +1 because we want the rail to reach through the "now" node
     const total = journeyNodes.length;
     if (total <= 1) return 100;
     return Math.round(((nowIndex + 0.5) / (total - 0.5)) * 100);
-  }, [journeyNodes]);
+  }, [journeyNodes, celebrate]);
 
   // Stage ladder: determine which stages are done / now / future
   const ladderRungs = useMemo(() => {
@@ -784,6 +802,33 @@ export default function RoadToBimah() {
             </div>
           </div>
           <div className="rb-hero-r">
+            {celebrate ? (
+              <div className="rb-celebrate">
+                <img
+                  className="rb-celebrate-emblem"
+                  src={emblemGold}
+                  alt=""
+                  width="96"
+                  height="96"
+                  draggable="false"
+                />
+                <p className="rb-celebrate-title">
+                  {firstName ? `Mazal tov to ${firstName} and family` : 'Mazal tov to the family'}
+                </p>
+                {/* "mazal tov" in Hebrew, as on the family report; to be confirmed with clergy */}
+                <p className="rb-celebrate-he" dir="rtl" lang="he">
+                  {'\u05DE\u05D6\u05DC \u05D8\u05D5\u05D1'}
+                </p>
+                {mitzvahDateFormatted && (
+                  <p className="rb-celebrate-blurb">
+                    Thank you for letting us be part of this journey.{' '}
+                    {firstName ? `${firstName}\u2019s ${celebrationLabel}` : `The ${celebrationLabel}`}
+                    {' '}was celebrated on {mitzvahDateFormatted}.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
             {daysToMitzvah !== null && daysToMitzvah > 0 && (
               <>
                 <div className="rb-count">{daysToMitzvah}</div>
@@ -811,10 +856,13 @@ export default function RoadToBimah() {
                 {currentStage.en} {'\u00B7'} {masteryPct}% ready
               </div>
             </div>
+              </>
+            )}
           </div>
         </section>
 
         {/* ===== STAGE LADDER ===== */}
+        {!celebrate && (
         <div className="rb-ladder" role="list" aria-label="Stages of lighting the menorah">
           {ladderRungs.map((rung) => (
             <div
@@ -833,15 +881,18 @@ export default function RoadToBimah() {
             </div>
           ))}
         </div>
+        )}
 
         {/* ===== THE JOURNEY SPINE ===== */}
         <section className="rb-journey">
           <div className="rb-journey-h">
             <h2>{firstName}{'\u2019'}s journey</h2>
             <span className="rb-journey-sub">
-              {isNewStudent
-                ? 'The journey is just beginning.'
-                : 'Every milestone on the way, behind and ahead.'}
+              {celebrate
+                ? 'Every milestone along the way.'
+                : isNewStudent
+                  ? 'The journey is just beginning.'
+                  : 'Every milestone on the way, behind and ahead.'}
             </span>
           </div>
 

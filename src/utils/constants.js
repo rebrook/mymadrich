@@ -160,6 +160,23 @@ export const STUDENT_STATUS_LABELS = {
   [STUDENT_STATUS.ARCHIVED]: 'Archived',
 };
 
+/**
+ * Which students each kind of dashboard lists. A family keeps seeing a completed
+ * child so they can look back on the journey; staff dashboards list only students
+ * still being worked with. Used by the Dashboard and Road to the Bimah so the two
+ * can never disagree.
+ */
+export const FAMILY_VISIBLE_STATUSES = [
+  STUDENT_STATUS.ACTIVE,
+  STUDENT_STATUS.DEFERRED,
+  STUDENT_STATUS.COMPLETED,
+];
+
+export const STAFF_VISIBLE_STATUSES = [
+  STUDENT_STATUS.ACTIVE,
+  STUDENT_STATUS.DEFERRED,
+];
+
 // ---- Milestone Stages (Brand → Milestone Stages card) ----
 //
 // The named ceremonial stages tied to the menorah readiness motif.
