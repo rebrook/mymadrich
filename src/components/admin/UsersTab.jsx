@@ -62,6 +62,14 @@ export default function UsersTab() {
   // Copy feedback
   const [copiedId, setCopiedId] = useState(null);
 
+  // Manage children dialog (parents): link and unlink one child at a time
+  const [childrenTarget, setChildrenTarget] = useState(null);
+  const [childPick, setChildPick] = useState('');
+  const [childConfirmId, setChildConfirmId] = useState(null);
+  const [childrenSaving, setChildrenSaving] = useState(false);
+  const [childrenError, setChildrenError] = useState(null);
+  const [childrenNotice, setChildrenNotice] = useState(null); // { text, undoGuardianId }
+
   // Edit name and phone dialog (administrators only; this whole tab is admin-only)
   const [editTarget, setEditTarget] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', phone: '' });
@@ -335,6 +343,114 @@ export default function UsersTab() {
       await fetchAll();
     } catch (err) {
       setError(`Failed to link: ${err.message}`);
+    }
+  }
+
+  // ---- Manage children (parent accounts) ----
+  // A parent can be linked to several children: each child has their own guardian record, and a
+  // link is one record. Links are added and removed one at a time so removing one child can never
+  // touch another, and a removal can be undone right away.
+
+  function openChildrenModal(profile) {
+    setChildrenTarget(profile);
+    setChildPick('');
+    setChildConfirmId(null);
+    setChildrenError(null);
+    setChildrenNotice(null);
+  }
+
+  function closeChildrenModal() {
+    setChildrenTarget(null);
+    setChildPick('');
+    setChildConfirmId(null);
+    setChildrenError(null);
+    setChildrenNotice(null);
+  }
+
+  function guardianChildName(g) {
+    const student = students.find((st) => st.id === g.student_id);
+    return student ? `${student.first_name} ${student.last_name}` : 'Unknown student';
+  }
+
+  // Only a record nobody else holds can be linked (never overwrite someone else's link)
+  async function linkGuardian(guardianId, userId) {
+    const { data, error: err } = await supabase
+      .from('student_guardians')
+      .update({ user_id: userId })
+      .eq('id', guardianId)
+      .is('user_id', null)
+      .select('id');
+    if (err) throw err;
+    if (!data || data.length === 0) {
+      await fetchAll({ silent: true });
+      throw new Error('That guardian record was linked to someone else in the meantime. The list has been refreshed.');
+    }
+    await fetchAll({ silent: true });
+  }
+
+  // Only this person's own link can be removed
+  async function unlinkGuardian(guardianId, userId) {
+    const { data, error: err } = await supabase
+      .from('student_guardians')
+      .update({ user_id: null })
+      .eq('id', guardianId)
+      .eq('user_id', userId)
+      .select('id');
+    if (err) throw err;
+    await fetchAll({ silent: true });
+    if (!data || data.length === 0) {
+      throw new Error('That child was no longer linked to this account. The list has been refreshed.');
+    }
+  }
+
+  async function handleAddChild() {
+    if (!childPick || !childrenTarget) return;
+    const guardian = guardians.find((g) => g.id === childPick);
+    setChildrenSaving(true);
+    setChildrenError(null);
+    setChildrenNotice(null);
+    try {
+      await linkGuardian(childPick, childrenTarget.id);
+      setChildPick('');
+      setChildrenNotice({ text: `Linked ${guardian ? guardianChildName(guardian) : 'the child'}.`, undoGuardianId: null });
+    } catch (err) {
+      setChildrenError(err.message);
+    } finally {
+      setChildrenSaving(false);
+    }
+  }
+
+  async function handleUnlinkChild(guardian) {
+    if (!childrenTarget) return;
+    const childName = guardianChildName(guardian);
+    setChildrenSaving(true);
+    setChildrenError(null);
+    setChildrenNotice(null);
+    try {
+      await unlinkGuardian(guardian.id, childrenTarget.id);
+      setChildConfirmId(null);
+      setChildrenNotice({ text: `Unlinked ${childName}.`, undoGuardianId: guardian.id });
+    } catch (err) {
+      setChildConfirmId(null);
+      setChildrenError(err.message);
+    } finally {
+      setChildrenSaving(false);
+    }
+  }
+
+  async function handleUndoUnlink() {
+    const guardianId = childrenNotice && childrenNotice.undoGuardianId;
+    if (!guardianId || !childrenTarget) return;
+    setChildrenSaving(true);
+    setChildrenError(null);
+    try {
+      await linkGuardian(guardianId, childrenTarget.id);
+      setChildrenNotice({ text: 'Link restored.', undoGuardianId: null });
+    } catch (err) {
+      setChildrenNotice(null);
+      setChildrenError(err.message);
+    } finally {
+      setChildrenSaving(false);
     }
   }
 
@@ -752,6 +868,20 @@ export default function UsersTab() {
 
   const linkTargets = linkProfile ? getLinkTargets() : [];
 
+  // Manage children dialog: this parent's children, and the records that could be added.
+  // Records with the same email as the account are suggested first.
+  const childrenLinked = childrenTarget
+    ? guardians
+        .filter((g) => g.user_id === childrenTarget.id)
+        .sort((a, b) => guardianChildName(a).localeCompare(guardianChildName(b)))
+    : [];
+  const childrenUnlinked = childrenTarget ? guardians.filter((g) => !g.user_id) : [];
+  const childrenEmail = childrenTarget && childrenTarget.email ? childrenTarget.email.toLowerCase() : '';
+  const childrenSuggested = childrenUnlinked.filter(
+    (g) => g.email && childrenEmail && g.email.toLowerCase() === childrenEmail
+  );
+  const childrenOthers = childrenUnlinked.filter((g) => !childrenSuggested.includes(g));
+
   // ---- Manage roles dialog (derived values) ----
   const manageTarget = manageId ? profiles.find((p) => p.id === manageId) : null;
   const manageHeld = manageTarget ? getProfileRoles(manageTarget) : [];
@@ -959,8 +1089,10 @@ export default function UsersTab() {
               const isCurrentUser = p.id === currentUser?.id;
               // Records this person can be linked to, by the roles they hold
               const linkKinds = ['student', 'parent'].filter((k) => roles.includes(k));
-              const linkableKinds = linkKinds.filter((k) => !getLinkageInfo(p, k).linked);
-              const unlinkableKinds = linkKinds.filter((k) => getLinkageInfo(p, k).linked);
+              // Students link to one record. Parents manage any number of children in their own dialog.
+              const linkableKinds = linkKinds.filter((k) => k === 'student' && !getLinkageInfo(p, k).linked);
+              const unlinkableKinds = linkKinds.filter((k) => k === 'student' && getLinkageInfo(p, k).linked);
+              const hasParentRole = roles.includes('parent');
               const linkLines = roles
                 .filter((r) => r !== 'admin')
                 .map((r) => ({ role: r, ...getLinkageInfo(p, r) }));
@@ -1050,6 +1182,15 @@ export default function UsersTab() {
                           {multiRole ? (k === 'student' ? 'Link student' : 'Link guardian') : 'Link'}
                         </button>
                       ))}
+                      {hasParentRole && (
+                        <button
+                          className="btn btn-small btn-outline"
+                          onClick={() => openChildrenModal(p)}
+                          aria-label={`Manage children for ${p.display_name || p.email}`}
+                        >
+                          Manage children
+                        </button>
+                      )}
                       {unlinkableKinds.map((k) => (
                         <button
                           key={`unlink-${k}`}
@@ -1208,6 +1349,146 @@ export default function UsersTab() {
                   <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
               </select>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Manage Children Modal */}
+      {childrenTarget && (
+        <Modal
+          title={`Children: ${childrenTarget.display_name || childrenTarget.email}`}
+          onClose={closeChildrenModal}
+          footer={<button className="btn btn-primary" onClick={closeChildrenModal}>Done</button>}
+        >
+          {childrenError && <div className="alert alert-error" role="alert">{childrenError}</div>}
+          {childrenNotice && (
+            <div className="alert alert-success" role="status">
+              {childrenNotice.text}
+              {childrenNotice.undoGuardianId && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="btn btn-small btn-outline"
+                    onClick={handleUndoUnlink}
+                    disabled={childrenSaving}
+                  >
+                    Undo
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          <p className="form-label">Linked children</p>
+          {childrenLinked.length === 0 ? (
+            <p className="form-hint">No children are linked to this account yet.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {childrenLinked.map((g) => {
+                const childName = guardianChildName(g);
+                const confirming = childConfirmId === g.id;
+                return (
+                  <li
+                    key={g.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 'var(--space-3)',
+                      padding: 'var(--space-3) 0',
+                      borderTop: '1px solid var(--color-border)',
+                    }}
+                  >
+                    <div>
+                      <strong>{childName}</strong>
+                      <div className="form-hint">{g.name}{g.relationship ? ` (${g.relationship})` : ''}</div>
+                    </div>
+                    {confirming ? (
+                      <div className="action-buttons">
+                        <span className="form-hint">
+                          {childrenTarget.display_name || childrenTarget.email} will stop seeing {childName}.
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-small btn-danger-outline"
+                          onClick={() => handleUnlinkChild(g)}
+                          disabled={childrenSaving}
+                        >
+                          Yes, unlink
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-small btn-outline"
+                          onClick={() => setChildConfirmId(null)}
+                          disabled={childrenSaving}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-small btn-outline"
+                        onClick={() => setChildConfirmId(g.id)}
+                        aria-label={`Unlink ${childName}`}
+                      >
+                        Unlink
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
+            <label className="form-label" htmlFor="add-child-select">Add a child</label>
+            {childrenUnlinked.length === 0 ? (
+              <p className="form-hint">
+                No unlinked guardian records are available. To add a child, first add this person as a
+                guardian on the child&rsquo;s page, then return here.
+              </p>
+            ) : (
+              <>
+                <select
+                  id="add-child-select"
+                  className="input"
+                  value={childPick}
+                  onChange={(e) => setChildPick(e.target.value)}
+                >
+                  <option value="">Select a child...</option>
+                  {childrenSuggested.length > 0 && (
+                    <optgroup label="Suggested: same email as this account">
+                      {childrenSuggested.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {guardianChildName(g)}: {g.name}{g.relationship ? ` (${g.relationship})` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {childrenOthers.length > 0 && (
+                    <optgroup label={childrenSuggested.length > 0 ? 'Other unlinked guardian records' : 'Unlinked guardian records'}>
+                      {childrenOthers.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {guardianChildName(g)}: {g.name}{g.relationship ? ` (${g.relationship})` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-small"
+                  style={{ marginTop: 'var(--space-2)' }}
+                  onClick={handleAddChild}
+                  disabled={!childPick || childrenSaving}
+                >
+                  {childrenSaving ? 'Linking...' : 'Link child'}
+                </button>
+              </>
             )}
           </div>
         </Modal>
