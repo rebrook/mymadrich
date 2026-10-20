@@ -206,6 +206,8 @@ export default function Dashboard() {
   // ---- Admin cohort landing state ----
   const { cohorts: allCohorts } = useCohorts();
   const [adminCohortId, setAdminCohortId] = useState('');
+  // Students whose stored status is Completed (not in the main list); feeds the hero's Completed tile
+  const [adminCompletedCount, setAdminCompletedCount] = useState(0);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminSortKey, setAdminSortKey] = useState('pace');
   const [adminSortDir, setAdminSortDir] = useState('asc');
@@ -304,6 +306,36 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) loadStudents();
   }, [user, loadStudents]);
+
+  // ---- Admin: count students whose stored status is Completed ----
+  // The main list above loads Active and Deferred students only, so students
+  // marked Completed never reach the cohort hero. They are counted here, for
+  // the admin hero's Completed tile only. This count is a head-only query (no
+  // rows are loaded) and refreshes whenever the student list reloads, which
+  // covers "Mark as completed" and its undo. With no cohort selected it counts
+  // every cohort, matching the hero's "All Students" scope.
+  useEffect(() => {
+    if (role !== ROLES.ADMIN) {
+      setAdminCompletedCount(0);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      let countQuery = supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', STUDENT_STATUS.COMPLETED);
+      if (adminCohortId) countQuery = countQuery.eq('cohort_id', adminCohortId);
+      const { count, error: countErr } = await countQuery;
+      if (cancelled) return;
+      if (countErr) {
+        console.error('Failed to count completed students:', countErr.message);
+        return;
+      }
+      setAdminCompletedCount(count || 0);
+    })();
+    return () => { cancelled = true; };
+  }, [role, adminCohortId, students]);
 
   // ---- Persist family child selection to localStorage ----
   useEffect(() => {
@@ -783,7 +815,13 @@ export default function Dashboard() {
   // Aggregate hero values
   const adminHeroData = useMemo(() => {
     const list = adminCohortStudents;
-    if (list.length === 0) return { readinessPct: 0, avgDays: null, paceCounts: {} };
+    if (list.length === 0) {
+      // No active students, but students marked Completed still belong in the tile.
+      const onlyCompleted = adminCompletedCount > 0
+        ? { on_track: 0, behind: 0, critical: 0, completed: adminCompletedCount, not_started: 0, family_tutored: 0 }
+        : {};
+      return { readinessPct: 0, avgDays: null, paceCounts: onlyCompleted };
+    }
 
     let totalVerse = 0;
     let masteredVerse = 0;
@@ -827,11 +865,15 @@ export default function Dashboard() {
       }
     });
 
+    // Students marked Completed are not in `list` (the main list loads Active
+    // and Deferred only), so each is counted exactly once here.
+    counts.completed += adminCompletedCount;
+
     const pct = masteryPercent(masteredVerse, totalVerse);
     const avg = daysCount > 0 ? Math.round(daysSum / daysCount) : null;
 
     return { readinessPct: pct, avgDays: avg, paceCounts: counts };
-  }, [adminCohortStudents, progressMap, paceMap]);
+  }, [adminCohortStudents, progressMap, paceMap, adminCompletedCount]);
 
   // Admin sort column handler (first click uses useful default direction)
   const ADMIN_FIRST_CLICK = { name: 'asc', mitzvah_date: 'asc', tutor: 'asc', last_session: 'asc', progress: 'asc', pace: 'asc', status: 'asc' };
@@ -2084,7 +2126,7 @@ export default function Dashboard() {
         {/* Cohort summary hero */}
         <CohortSummaryHero
           cohortName={cohortDisplayName}
-          studentCount={adminCohortStudents.length}
+          studentCount={adminCohortStudents.length + adminCompletedCount}
           avgDaysToMitzvah={adminHeroData.avgDays}
           readinessPct={adminHeroData.readinessPct}
           paceCounts={adminHeroData.paceCounts}
