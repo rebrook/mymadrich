@@ -9252,12 +9252,13 @@ select.input {
   margin-top: 4px;
 }
 
-/* Ring wrapper: the grid item that holds the ring and its help tip */
+/* Ring wrapper: the grid item that holds the ring and its help tip.
+   z-index 2 (one above .cs-info) so the help bubble draws over the tiles. */
 .cs-ring-wrap {
   position: relative;
   width: 150px;
   height: 150px;
-  z-index: 1;
+  z-index: 2;
 }
 
 /* Readiness help tip: top-right corner of the ring box, clear of the ring itself.
