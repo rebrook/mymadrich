@@ -696,7 +696,7 @@ export default function StudentTab() {
         const sorted = sortStudents(filtered);
 
         return (
-          <div className="data-table-wrap">
+          <div className="data-table-wrap" tabIndex={0} role="region" aria-label="Students table, scrollable">
           <table className="data-table table-interactive">
             <thead>
               <tr>

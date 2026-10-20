@@ -96,6 +96,7 @@ export default function CohortReport({
         {/* Status breakdown: same groups as the Dashboard, adds up to the cohort */}
         <section className="cc-report-section">
           <h2 className="cc-report-h2">Status breakdown</h2>
+          <div className="cc-report-scroll" tabIndex={0} role="region" aria-label="Status breakdown table">
           <table className="cc-report-table">
             <thead>
               <tr>
@@ -132,6 +133,7 @@ export default function CohortReport({
               </tr>
             </tbody>
           </table>
+          </div>
         </section>
 
         {/* Cluster warnings */}
@@ -174,6 +176,7 @@ export default function CohortReport({
         {/* Date spread */}
         <section className="cc-report-section">
           <h2 className="cc-report-h2">Date spread</h2>
+          <div className="cc-report-scroll" tabIndex={0} role="region" aria-label="Date spread table, scrollable">
           <table className="cc-report-table cc-report-table-spread">
             <thead>
               <tr>
@@ -216,6 +219,7 @@ export default function CohortReport({
               ))}
             </tbody>
           </table>
+          </div>
         </section>
 
         {/* Footer */}

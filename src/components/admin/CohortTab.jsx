@@ -107,6 +107,7 @@ export default function CohortTab() {
           <p>No cohorts yet. Create your first cohort to get started.</p>
         </div>
       ) : (
+        <div className="data-table-wrap" tabIndex={0} role="region" aria-label="Cohorts table, scrollable">
         <table className="data-table">
           <thead>
             <tr>
@@ -150,6 +151,7 @@ export default function CohortTab() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {showForm && (

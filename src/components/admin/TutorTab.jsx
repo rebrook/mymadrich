@@ -609,6 +609,7 @@ export default function TutorTab() {
       )}
 
       {!loading && displayedTutors.length > 0 && (
+        <div className="data-table-wrap" tabIndex={0} role="region" aria-label="Tutors table, scrollable">
         <table className="data-table">
           <thead>
             <tr>
@@ -653,6 +654,7 @@ export default function TutorTab() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {/* Add Tutor Modal (multi-row) */}

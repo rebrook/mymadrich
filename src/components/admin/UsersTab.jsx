@@ -886,7 +886,8 @@ export default function UsersTab() {
           <p>No users match your search.</p>
         </div>
       ) : (
-        <table className="data-table" style={{ marginTop: 'var(--space-3)' }}>
+        <div className="data-table-wrap" tabIndex={0} role="region" aria-label="Users table, scrollable" style={{ marginTop: 'var(--space-3)' }}>
+        <table className="data-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -1023,6 +1024,7 @@ export default function UsersTab() {
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       {/* Manage Roles Modal */}

@@ -2672,7 +2672,7 @@ export default function Dashboard() {
             ) : (
               <>
                 {/* Readiness table (desktop) */}
-                <div className="readiness-table-wrap desktop-only">
+                <div className="readiness-table-wrap desktop-only" tabIndex={0} role="region" aria-label="Students by readiness, scrollable">
                   <table className="readiness-table">
                     <thead>
                       <tr>

@@ -107,9 +107,10 @@ export default function AppShell() {
               onClick={signOut}
               className="mobile-header-signout"
               type="button"
+              aria-label="Sign out"
             >
               <SignOutSmallIcon />
-              Sign out
+              <span className="mobile-header-signout-text">Sign out</span>
             </button>
           </div>
         </header>
@@ -448,22 +449,23 @@ function getNavItems(role) {
 
 
 /**
- * Map pathname to content width container class.
- *   Dashboard:      1080px (content-dashboard)
- *   Form:           760px  (content-form) — Log Session, Edit Session
- *   Table:          1200px (content-table) — Admin tabs, Session History
- *   StudentDetail:  1080px (content-dashboard)
- *   Calendar:       1080px (content-dashboard) — Cohort Calendar
- *   Fallback:       1080px (content-dashboard)
+ * Map pathname to content width container class. The shell is the ONLY place page width is set;
+ * pages do not set their own maximums. Ceilings are in rem (see the tokens in index.css) and are
+ * maximums on a fluid layout:
+ *   content-form       48rem  (768px)  Log Session, Edit Session
+ *   content-list       60rem  (960px)  Session History, My Week, Road to the Bimah, Cohort Calendar
+ *   content-dashboard  80rem  (1280px) Dashboard, Student detail, fallback
+ *   content-table      100rem (1600px) Admin tabs (wide data tables)
  */
 function getContentWidthClass(pathname) {
   if (pathname === '/dashboard') return 'content-dashboard';
-  if (pathname === '/sessions') return 'content-table';
-  if (pathname === '/my-week') return 'content-dashboard';
+  if (pathname === '/sessions') return 'content-list';
+  if (pathname === '/my-week') return 'content-list';
+  if (pathname === '/road-to-the-bimah') return 'content-list';
   if (pathname === '/sessions/new') return 'content-form';
   if (pathname.match(/^\/sessions\/[^/]+\/edit$/)) return 'content-form';
   if (pathname === '/admin') return 'content-table';
   if (pathname.match(/^\/admin\/students\/[^/]+$/)) return 'content-dashboard';
-  if (pathname === '/admin/calendar') return 'content-dashboard';
+  if (pathname === '/admin/calendar') return 'content-list';
   return 'content-dashboard';
 }

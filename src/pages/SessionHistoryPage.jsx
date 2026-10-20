@@ -541,7 +541,7 @@ export default function SessionHistoryPage() {
   const displayError = studentError || error;
 
   return (
-    <div className="page content-form">
+    <div className="page">
       <h1>Session History</h1>
 
       {displayError && <div className="alert alert-error">{displayError}</div>}

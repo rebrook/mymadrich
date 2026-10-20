@@ -779,6 +779,7 @@ export default function CohortCalendar() {
                             title={`View progress report for ${s.first_name} ${s.last_name}`}
                           >
                             <span className="cc-av">{initials(s)}</span>
+                            <span className="cc-chip-text">
                             <span className="cc-chip-who">{s.first_name} {s.last_name}</span>
                             {tName && (
                               <span className="cc-chip-tut">{'\u00B7'} {tName}</span>
@@ -796,6 +797,7 @@ export default function CohortCalendar() {
                                 )}
                               </span>
                             )}
+                            </span>
                             {!isPast && (
                               <span className={paceDotClass(s.paceStatus)} aria-label={PACE_LABELS[s.paceStatus] || 'Unknown pace'} />
                             )}

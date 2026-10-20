@@ -193,9 +193,12 @@
   --bottom-nav-height: 57px;
   --sidebar-rail: 64px;
   --sidebar-full: 232px;
-  --content-form: 760px;
-  --content-dashboard: 1080px;
-  --content-table: 1200px;
+  /* Page width ceilings, in rem so they follow the user's text size. Each is a MAXIMUM on a
+     fluid layout: a smaller screen simply uses its full width. */
+  --content-form: 48rem;
+  --content-list: 60rem;
+  --content-dashboard: 80rem;
+  --content-table: 100rem;
 
   /* ---- Breakpoints (reference only — CSS can't use vars in @media) ---- */
   --bp-phone: 768px;   /* single-column, stacked, full-width buttons */
@@ -388,6 +391,7 @@ a:hover {
 .app-shell {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-content-column {
@@ -400,7 +404,7 @@ a:hover {
 .app-main {
   flex: 1;
   min-width: 0;
-  padding: 34px 40px 80px;
+  padding: 2.125rem clamp(1.25rem, 3vw, 2.5rem) 5rem;
 }
 
 /* Bottom nav: hidden on desktop, shown on mobile via media query */
@@ -1044,6 +1048,7 @@ a:hover {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Brand panel (left) */
@@ -1220,6 +1225,7 @@ a:hover {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .login-brand-panel { display: none; }
@@ -1299,6 +1305,7 @@ a:hover {
 
 .loading-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1309,6 +1316,7 @@ a:hover {
 
 .auth-error-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1479,7 +1487,6 @@ a.auth-error-retry {
 
 .data-table-wrap {
   overflow: auto;
-  max-height: 65vh;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
@@ -1515,6 +1522,11 @@ a.auth-error-retry {
 
 .data-table tbody tr:nth-child(even) {
   background-color: var(--color-bg);
+}
+
+/* An invited (not yet signed in) row keeps its tint on striped rows too */
+.data-table tbody tr.row-pending {
+  background-color: var(--color-warning-bg, rgba(198, 146, 42, 0.06));
 }
 
 .data-table .clickable-row {
@@ -3996,6 +4008,12 @@ select.input {
 
 .content-form {
   max-width: var(--content-form);
+  margin-inline: auto;
+  width: 100%;
+}
+
+.content-list {
+  max-width: var(--content-list);
   margin-inline: auto;
   width: 100%;
 }
@@ -7896,6 +7914,7 @@ select.input {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: var(--space-4);
   background: var(--color-bg);
 }
@@ -9539,7 +9558,6 @@ select.input {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: auto;
-  max-height: 65vh;
   box-shadow: var(--shadow-sm);
 }
 
@@ -10044,7 +10062,7 @@ select.input {
 }
 
 .rb-wrap {
-  max-width: 920px;
+  /* width comes from the page shell (AppShell content classes), not from here */
   margin: 0 auto;
   padding: 36px 28px 70px;
 }
@@ -10743,7 +10761,6 @@ select.input {
 /* ---- Pending note ---- */
 
 .rb-note {
-  max-width: 920px;
   margin: 20px auto 0;
   padding: 0 28px 40px;
 }
@@ -10963,6 +10980,7 @@ select.input {
 
 .student-detail-skeleton {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -11064,7 +11082,6 @@ select.input {
 /* ---- Page wrapper ---- */
 
 .cc-wrap {
-  max-width: 960px;
   margin: 0 auto;
   padding: 0 0 40px;
 }
@@ -11285,7 +11302,16 @@ select.input {
 
 .cc-controls-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* The cohort picker shares the row and shrinks; the report button wraps below when it must */
+.cc-controls-actions .cohort-select {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .cc-print-btn {
@@ -11448,10 +11474,12 @@ select.input {
   gap: 8px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: 1.25rem; /* a pill on one line, a rounded rectangle when the text wraps */
   padding: 5px 12px 5px 5px;
   font-size: 0.86rem;
-  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
   font-family: var(--font-body);
   cursor: pointer;
   color: var(--color-text);
@@ -11466,6 +11494,15 @@ select.input {
 .cc-chip:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+/* Name, tutor, and percentages sit together and wrap as a group; the avatar and dot stay put */
+.cc-chip-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  min-width: 0;
 }
 
 .cc-av {
@@ -11486,6 +11523,7 @@ select.input {
 .cc-chip-who {
   font-weight: 600;
   color: var(--color-text);
+  overflow-wrap: anywhere;
 }
 
 .cc-chip-tut {
@@ -11697,6 +11735,7 @@ select.input {
 
 .cc-report-page {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .cc-report-toolbar {
@@ -12312,7 +12351,6 @@ select.input {
    ============================================================ */
 
 .tw-wrap {
-  max-width: 940px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6) 50px;
 }
@@ -13494,4 +13532,93 @@ select.input {
 .help-tip-icon:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+
+/* ==========================================================================
+   LAYOUT SYSTEM: window-sized tables, phone header, anchors, touch targets.
+   Everything here is relative (rem, dvh, %, wrapping). No pixel is pinned to
+   a particular device.
+   ========================================================================== */
+
+/* Jump targets (anchors, scrollIntoView) clear the sticky top bar */
+html {
+  scroll-padding-top: 5rem;
+}
+
+/* Working-list tables: a box no taller than the window, with pinned headers, on wider screens.
+   It is a MAXIMUM, so a short table stays short and an estimate that is a little off
+   only makes the box slightly taller or shorter. The first line is the fallback for
+   browsers without dvh; the second follows the visible window. */
+@media (min-width: 769px) {
+  .data-table-wrap,
+  .readiness-table-wrap {
+    max-height: 70vh;
+    max-height: max(20rem, calc(100dvh - 7rem));
+  }
+}
+
+/* On phones the tables are cards: no box, no inner scrolling, the cards flow with the page */
+@media (max-width: 768px) {
+  .data-table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+/* Report tables only contain sideways overflow; they are never height-capped, and print in full */
+.cc-report-scroll {
+  overflow-x: auto;
+}
+
+@media print {
+  .cc-report-scroll {
+    overflow: visible !important;
+  }
+}
+
+/* Phone header: a long title shortens with an ellipsis instead of wrapping */
+@media (max-width: 1023px) {
+  .mobile-header {
+    gap: 0.5rem;
+  }
+
+  .mobile-header-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-header-right {
+    flex: none;
+  }
+
+  .mobile-header-signout {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    white-space: nowrap;
+  }
+}
+
+/* On narrow phones "Sign out" is an icon; the words stay available to screen readers */
+@media (max-width: 26.25rem) {
+  .mobile-header-signout-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
+/* Any touch screen, at any width, gets full-size small buttons */
+@media (pointer: coarse) {
+  .btn-small {
+    min-height: 44px;
+  }
 }
