@@ -73,6 +73,10 @@ self.addEventListener('fetch', (event) => {
   // Never intercept non-GET requests
   if (event.request.method !== 'GET') return;
 
+  // Only handle regular web requests. Browser extensions make requests on
+  // chrome-extension:// and similar schemes, which the Cache API cannot store.
+  if (!url.startsWith('http')) return;
+
   // Never cache Supabase, auth, or API requests
   if (shouldBypass(url)) return;
 
@@ -82,9 +86,12 @@ self.addEventListener('fetch', (event) => {
         // Cache successful responses for app shell resources
         if (response.ok && response.type === 'basic') {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, responseClone))
+            .catch(() => {
+              // A failed cache write must never surface as an error; the response itself is fine.
+            });
         }
         return response;
       })

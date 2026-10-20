@@ -68,7 +68,8 @@ export default function AppShell() {
       <div className="app-content-column">
         <header className="app-topbar">
           <div className="topbar-left">
-            <h1 className="topbar-title">{title}</h1>
+            {/* Not a heading: every page renders its own <h1>, so the bar only labels the section */}
+            <div className="topbar-title">{title}</div>
             {subtitle && <span className="topbar-subtitle">{subtitle}</span>}
           </div>
           <div className="topbar-right">
@@ -251,6 +252,9 @@ function getPageMeta(pathname, role) {
   }
   if (pathname === '/sessions') {
     return { title: 'Sessions', subtitle: 'History' };
+  }
+  if (pathname === '/road-to-the-bimah') {
+    return { title: 'Journey', subtitle: null };
   }
   if (pathname === '/sessions/new') {
     return { title: 'Log session', subtitle: null };

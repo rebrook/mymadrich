@@ -132,8 +132,8 @@
 
   /* ---- Pace signal (admin / tutor only) ---- */
   --color-pace-ahead: #2563eb;
-  --color-pace-on-track: #3d8b40;
-  --color-pace-behind: #c95d1e;
+  --color-pace-on-track: #3a843d;   /* white text 4.62:1 (was 4.23:1) */
+  --color-pace-behind: #bf581c;   /* white text 4.54:1 (was 4.14:1) */
   --color-pace-critical: #c53030;
   --color-pace-neutral: #6b7280;
 
@@ -1361,6 +1361,13 @@ a:hover {
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-standard);
   min-height: 44px;
+}
+
+a.auth-error-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .auth-error-retry:hover {
@@ -3242,38 +3249,8 @@ select.input {
     justify-content: center;
   }
 
-  /* Filter bar mobile */
-  .session-filter-bar {
-    padding: var(--space-3);
-  }
-
-  .session-filter-dates {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
-  }
-
-  .session-filter-input {
-    width: 100%;
-    min-width: unset;
-  }
-
-  .session-filter-clear {
-    align-self: flex-start;
-  }
-
-  .session-filter-presets {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    gap: var(--space-2);
-    padding-bottom: var(--space-1);
-  }
-
-  .session-history-utility-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
-  }
+  /* Session History filter phone rules now live after the base rules (see "Session History
+     filters on phones"); here they were silently overridden by the later base rules. */
 }
 
 
@@ -7219,6 +7196,47 @@ select.input {
   color: var(--color-text-inverse);
 }
 
+/* ---- Session History filters on phones ----
+   These must come AFTER the base rules above. They were previously earlier in the file
+   and lost to the base rules, which pushed the date fields to the right. Preset chips
+   keep wrapping (all options stay visible); inputs are 16px so iPhones do not zoom. */
+@media (max-width: 768px) {
+  .session-history-utility-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .session-filter-bar {
+    padding: var(--space-3);
+  }
+
+  .session-filter-dates {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .session-filter-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    font-size: var(--text-base);
+  }
+
+  .session-filter-clear {
+    align-self: flex-start;
+  }
+
+  .session-filter-presets {
+    gap: var(--space-2);
+  }
+
+  .session-filter-preset {
+    min-height: 44px;
+  }
+}
+
 /* ---- Student name in all-students mode ---- */
 
 .session-history-student-name {
@@ -9928,18 +9946,18 @@ select.input {
 /* ---- Line 2: maker / tech ---- */
 
 .app-footer-maker {
-  font-size: 0.7rem;
-  color: var(--color-text-tertiary, rgba(0, 0, 0, 0.38));
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
 }
 
 .app-footer-maker a {
-  color: var(--color-text-tertiary, rgba(0, 0, 0, 0.38));
+  color: var(--color-text-secondary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .app-footer-maker a:hover {
-  color: var(--color-text-secondary);
+  color: var(--color-text);
 }
 
 /* ---- Build tag ---- */

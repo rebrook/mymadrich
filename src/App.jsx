@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Outlet, Navigate, useMatches, ScrollRestoration } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, Link, useMatches, ScrollRestoration } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
@@ -148,9 +148,18 @@ const router = createBrowserRouter(
           path: '/unauthorized',
           handle: { title: 'Access Denied' },
           element: (
-            <div className="page">
-              <h2>Access Denied</h2>
-              <p>You do not have permission to view this page.</p>
+            <div className="auth-error-screen">
+              <div className="auth-error-card">
+                <h1 className="auth-error-title">Access Denied</h1>
+                <p className="auth-error-message">
+                  You do not have permission to view this page.
+                </p>
+                <div className="auth-error-actions">
+                  <Link to="/dashboard" className="auth-error-retry">
+                    Back to the dashboard
+                  </Link>
+                </div>
+              </div>
             </div>
           ),
         },
