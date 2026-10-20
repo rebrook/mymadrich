@@ -1,10 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import usePageTitle from '../../hooks/usePageTitle';
 import emblemGold from '../../assets/chizuk-emblem-gold.png';
 import emblemCream from '../../assets/chizuk-emblem-cream.png';
 import Footer from '../layout/Footer';
+
+// main.jsx keeps an auth error from the web address here, because the router drops the address
+// before this page loads (a refused or locked account comes back to the site root with an error).
+const AUTH_ERROR_KEY = 'mymadrich:auth_error';
+
+const MSG_INACTIVE =
+  'Your account is inactive. Please contact the B\u2019nai Mitzvah coordinator to restore your access.';
+const MSG_REDIRECT_FALLBACK =
+  'We couldn\u2019t sign you in with that account. If you were invited, please use the email address '
+  + 'your invitation was sent to. Otherwise, contact the B\u2019nai Mitzvah coordinator.';
+
+/**
+ * Turn a raw sign-in error into words a family can act on.
+ *   - A locked (deactivated) account says so.
+ *   - Our own invite-only message already says "invitation", so it is shown as it is.
+ *   - Anything else from the sign-in form is shown as it is; anything else that comes back
+ *     through the web address gets a plain fallback instead of technical text.
+ */
+function friendlyAuthMessage(raw, { fromRedirect = false } = {}) {
+  const text = String(raw || '');
+  if (/banned/i.test(text)) return MSG_INACTIVE;
+  if (/invitation/i.test(text)) return text;
+  return fromRedirect ? MSG_REDIRECT_FALLBACK : text;
+}
 
 /**
  * Login page — elevated ceremonial direction.
@@ -27,6 +51,19 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   usePageTitle('Sign In');
 
+  // Show an error that came back through the web address (see main.jsx)
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(AUTH_ERROR_KEY);
+      if (!stored) return;
+      sessionStorage.removeItem(AUTH_ERROR_KEY);
+      const { description } = JSON.parse(stored);
+      setError(friendlyAuthMessage(description, { fromRedirect: true }));
+    } catch {
+      // Storage unavailable: the page simply shows no extra detail
+    }
+  }, []);
+
   // Already logged in — redirect
   if (!loading && user) {
     return <Navigate to="/dashboard" replace />;
@@ -47,7 +84,7 @@ export default function LoginPage() {
       await signInWithMagicLink(email.trim());
       setMagicLinkSent(true);
     } catch (err) {
-      setError(err.message);
+      setError(friendlyAuthMessage(err.message));
     } finally {
       setSubmitting(false);
     }
@@ -104,10 +141,10 @@ export default function LoginPage() {
             Welcome back. Continue the journey to the bimah.
           </p>
 
-          {error && <div className="alert alert-error">{error}</div>}
+          {error && <div className="alert alert-error" role="alert">{error}</div>}
 
           {magicLinkSent ? (
-            <div className="alert alert-success">
+            <div className="alert alert-success" role="status">
               Check your email for a sign-in link. You can close this tab.
             </div>
           ) : (
