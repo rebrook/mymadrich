@@ -62,6 +62,12 @@ export default function UsersTab() {
   // Copy feedback
   const [copiedId, setCopiedId] = useState(null);
 
+  // Edit name and phone dialog (administrators only; this whole tab is admin-only)
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', phone: '' });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+
   // Inactive accounts: hidden unless this is ticked (mirrors the Tutors tab toggle)
   const [showInactive, setShowInactive] = useState(false);
 
@@ -329,6 +335,53 @@ export default function UsersTab() {
       await fetchAll();
     } catch (err) {
       setError(`Failed to link: ${err.message}`);
+    }
+  }
+
+  // ---- Edit an account's name and phone ----
+  // Accounts created by a magic-link sign-in are named after their email until someone sets a
+  // name. Email stays as it is: it is the sign-in identity and is matched to invitations.
+
+  function openEditModal(profile) {
+    setEditTarget(profile);
+    setEditForm({ name: profile.display_name || '', phone: profile.phone || '' });
+    setEditError(null);
+  }
+
+  function closeEditModal() {
+    setEditTarget(null);
+    setEditError(null);
+  }
+
+  async function handleEditSave() {
+    if (!editTarget) return;
+    const name = editForm.name.trim();
+    if (!name) {
+      setEditError('Name is required.');
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const { error: err } = await supabase
+        .from('profiles')
+        .update({
+          display_name: name,
+          phone: editForm.phone.trim() || null,
+        })
+        .eq('id', editTarget.id);
+      if (err) throw err;
+
+      const isSelf = editTarget.id === currentUser?.id;
+      closeEditModal();
+      await fetchAll({ silent: true });
+      // Your own name also shows in the sidebar and header
+      if (isSelf && refreshProfile) await refreshProfile();
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -976,6 +1029,13 @@ export default function UsersTab() {
                     <div className="action-buttons">
                       <button
                         className="btn btn-small btn-outline"
+                        onClick={() => openEditModal(p)}
+                        aria-label={`Edit ${p.display_name || p.email}`}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-small btn-outline"
                         onClick={() => openManageRoles(p)}
                         aria-label={`Manage roles for ${p.display_name || p.email}`}
                       >
@@ -1149,6 +1209,62 @@ export default function UsersTab() {
                 ))}
               </select>
             )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit Name and Phone Modal */}
+      {editTarget && (
+        <Modal
+          title="Edit Account"
+          onClose={closeEditModal}
+          footer={
+            <>
+              <button className="btn btn-outline" onClick={closeEditModal}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleEditSave} disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          }
+        >
+          {editError && <div className="alert alert-error">{editError}</div>}
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="edit-account-name">Name *</label>
+            <input
+              id="edit-account-name"
+              className="input"
+              value={editForm.name}
+              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="edit-account-email">
+              Email
+              <span className="form-hint" style={{ marginLeft: 'var(--space-2)' }}>
+                (cannot be changed; it is how this person signs in)
+              </span>
+            </label>
+            <input
+              id="edit-account-email"
+              type="email"
+              className="input"
+              value={editTarget.email || ''}
+              disabled
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="edit-account-phone">Phone</label>
+            <input
+              id="edit-account-phone"
+              type="tel"
+              className="input"
+              value={editForm.phone}
+              onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+            />
           </div>
         </Modal>
       )}
