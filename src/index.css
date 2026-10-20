@@ -9252,6 +9252,59 @@ select.input {
   margin-top: 4px;
 }
 
+/* Ring wrapper: the grid item that holds the ring and its help tip */
+.cs-ring-wrap {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  z-index: 1;
+}
+
+/* Readiness help tip: top-right corner of the ring box, clear of the ring itself.
+   The hero clips overflow, so the tip opens downward and stays inside the panel. */
+.cs-ring-help {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+}
+
+.cs-ring-help .help-tip-icon {
+  width: 20px;
+  height: 20px;
+  background-color: rgba(255, 255, 255, 0.16);
+  color: var(--color-text-inverse);
+}
+
+.cs-ring-help .help-tip-icon:hover,
+.cs-ring-help .help-tip-icon:focus {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.cs-ring-help .help-tip-icon:focus-visible {
+  outline: 2px solid var(--focus-ring-on-dark);
+  outline-offset: 2px;
+}
+
+/* Light bubble: the default dark bubble would vanish against the purple panel */
+.cs-ring-help .help-tip-text {
+  bottom: auto;
+  top: calc(100% + 6px);
+  width: 280px;
+  text-align: left;
+  line-height: 1.5;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.cs-ring-help .help-tip-text::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--color-surface);
+}
+
 /* Info section */
 .cs-info {
   position: relative;
@@ -9621,6 +9674,25 @@ select.input {
   .cs-ring svg {
     width: 92px;
     height: 92px;
+  }
+
+  .cs-ring-wrap {
+    width: 92px;
+    height: 92px;
+    margin: 16px auto 14px;
+  }
+
+  .cs-ring-wrap .cs-ring {
+    margin: 0;
+  }
+
+  .cs-ring-help {
+    top: -4px;
+    right: -8px;
+  }
+
+  .cs-ring-help .help-tip-text {
+    width: 220px;
   }
 
   .cs-ring-num {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import emblemGold from '../../assets/chizuk-emblem-gold.png';
+import HelpTip from './HelpTip';
 
 /**
  * CohortSummaryHero — deep-purple ceremonial panel showing aggregate
@@ -17,6 +18,11 @@ const PACE_PILLS = [
   { key: 'not_started', label: 'Not started', color: 'rgba(255,255,255,0.35)', title: 'No readings assigned yet or no pace data' },
   { key: 'family_tutored', label: 'Family-tutored', color: 'rgba(255,255,255,0.7)', title: 'Taught by a family member; pace is not tracked here' },
 ];
+
+// Plain-language explanation of the readiness ring. Mirrors the calculation in
+// Dashboard.jsx (adminHeroData) and the "learned with trope" rule in utils/mastery.js.
+const READINESS_HELP =
+  'Cohort ready is the share of all assigned verses that are learned with trope, counted across every student in the cohort. Students with more verses weigh more. Family-tutored students are left out. Only students with an Active or Deferred status are counted.';
 
 export default function CohortSummaryHero({
   cohortName = '',
@@ -67,7 +73,8 @@ export default function CohortSummaryHero({
         aria-hidden="true"
       />
 
-      {/* SVG readiness ring */}
+      {/* SVG readiness ring, with a help tip kept outside the decorative ring */}
+      <div className="cs-ring-wrap">
       <div className="cs-ring" aria-hidden="true">
         <svg width="150" height="150" viewBox="0 0 150 150">
           <circle
@@ -95,6 +102,10 @@ export default function CohortSummaryHero({
           <div className="cs-ring-num">{Math.round(target)}%</div>
           <div className="cs-ring-label">cohort ready</div>
         </div>
+      </div>
+      <span className="cs-ring-help">
+        <HelpTip text={READINESS_HELP} />
+      </span>
       </div>
 
       {/* Info section */}
