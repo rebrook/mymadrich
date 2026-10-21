@@ -19,13 +19,14 @@ import {
   calculatePace,
   calculateElementsSummary,
 } from '../utils/paceCalculations';
-import { tutorName, mitzvahLabel, mitzvahPronoun } from '../utils/people';
+import { tutorName, mitzvahLabel, mitzvahPronoun, resolveGuardian } from '../utils/people';
 import { pickDefaultChild, isChildCompleted } from '../utils/familyChildren';
 import { formatSessionTime } from '../utils/datetime';
 import usePageTitle from '../hooks/usePageTitle';
 import { limitBenchmarksToVisible } from '../utils/scope';
 import MenorahReadiness from '../components/domain/MenorahReadiness';
 import StudentSwitcher from '../components/ui/StudentSwitcher';
+import ChildChips from '../components/ui/ChildChips';
 import { emblemGold } from '../assets/emblem';
 import simchakitLogo from '../assets/simchakit-logo.png';
 
@@ -490,7 +491,7 @@ export default function RoadToBimah() {
           if (studentIds.length > 0) {
             const { data: studentRows } = await supabase
               .from('students')
-              .select('id, first_name, last_name, hebrew_name, status, mitzvah_date, student_guardians(name, email, is_primary)')
+              .select('id, first_name, last_name, hebrew_name, status, mitzvah_date, student_guardians(user_id, name, email, phone, is_primary, profile:profiles!user_id(display_name, email, phone))')
               .in('id', studentIds)
               .in('status', FAMILY_VISIBLE_STATUSES)
               .order('last_name');
@@ -498,7 +499,7 @@ export default function RoadToBimah() {
             const rows = (studentRows || []).map((s) => ({
               ...s,
               guardians: (s.student_guardians || []).map((g) => ({
-                first_name: g.name,
+                first_name: resolveGuardian(g).name,
                 last_name: '',
                 is_primary: g.is_primary,
               })),
@@ -755,12 +756,20 @@ export default function RoadToBimah() {
         {/* Child switcher for parents with multiple children */}
         {showChildSwitcher && (
           <div className="rb-child-switcher">
-            <StudentSwitcher
-              students={accessibleStudents}
-              selectedStudentId={student?.id || null}
-              onSelect={handleChildSwitch}
-              placeholder="Switch child"
-            />
+            {accessibleStudents.length <= 5 ? (
+              <ChildChips
+                students={accessibleStudents}
+                selectedId={student?.id || null}
+                onSelect={handleChildSwitch}
+              />
+            ) : (
+              <StudentSwitcher
+                students={accessibleStudents}
+                selectedStudentId={student?.id || null}
+                onSelect={handleChildSwitch}
+                placeholder="Switch child"
+              />
+            )}
           </div>
         )}
 

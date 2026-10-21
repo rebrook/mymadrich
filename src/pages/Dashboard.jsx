@@ -12,7 +12,7 @@ import {
   STAFF_VISIBLE_STATUSES,
 } from '../utils/constants';
 import { calculatePace, calculateElementsSummary, formatTargetDate, formatWeeksRemaining, PACE_STATUS, PACE_COLORS, getPaceRationale } from '../utils/paceCalculations';
-import { tutorName, tutorListLabel } from '../utils/people';
+import { tutorName, tutorListLabel, resolveGuardian } from '../utils/people';
 import { pickDefaultChild, isChildCompleted } from '../utils/familyChildren';
 import { formatDateCompact, formatDateShort, formatDayDate, formatSessionTime, formatSessionTimeRange, getTodayDateString, addDaysToDateString } from '../utils/datetime';
 import { buildNudgeTutorMailto, buildCaseloadNudgeMailto, resolvePrimaryGuardianContact } from '../utils/mailto';
@@ -25,6 +25,7 @@ import HelpTip from '../components/ui/HelpTip';
 import PaceBadge from '../components/ui/PaceBadge';
 import AlertsPanel from '../components/ui/AlertsPanel';
 import StudentSwitcher from '../components/ui/StudentSwitcher';
+import ChildChips from '../components/ui/ChildChips';
 import MyChildrenCard from '../components/ui/MyChildrenCard';
 import HeroHeader from '../components/ui/HeroHeader';
 import CeremonialHero from '../components/ui/CeremonialHero';
@@ -322,7 +323,7 @@ export default function Dashboard() {
           next_session_date, next_session_time, next_session_end_time,
           tutor:profiles!tutor_id(display_name, email),
           cohort:cohorts!cohort_id(id, name, start_date, completion_buffer_weeks, default_lessons_per_week),
-          student_guardians(name, email, is_primary),
+          student_guardians(user_id, name, email, phone, is_primary, profile:profiles!user_id(display_name, email, phone)),
           student_tutors(tutor_id, created_at, tutor:profiles!tutor_id(id, display_name, email))
         `)
         // Families keep seeing a child after the mitzvah (to look back on it); staff views list
@@ -780,6 +781,8 @@ export default function Dashboard() {
 
   // ---- Derived values ----
   const showSelector = role === ROLES.ADMIN || role === ROLES.TUTOR || students.length > 1;
+  // A family with a handful of children picks with one tap (chips); staff and large families search
+  const useChildChips = isStudentOrParent && students.length >= 2 && students.length <= 5;
   // Family view of a completed child: celebrate and look back instead of showing a to-do list
   const isCelebration = isStudentOrParent && Boolean(dashData?.student) && isChildCompleted(dashData.student);
   const daysToMitzvah = dashData?.student?.mitzvah_date
@@ -801,7 +804,7 @@ export default function Dashboard() {
   const switcherStudents = students.map((s) => ({
     ...s,
     guardians: (s.student_guardians || []).map((g) => ({
-      first_name: g.name,
+      first_name: resolveGuardian(g).name,
       last_name: '',
       is_primary: g.is_primary,
     })),
@@ -3146,12 +3149,20 @@ export default function Dashboard() {
               )}
             </div>
           ) : (
-            <StudentSwitcher
-              students={switcherStudents}
-              selectedStudentId={selectedStudentId || null}
-              onSelect={(id) => setSelectedStudentId(id)}
-              placeholder="Switch student"
-            />
+            useChildChips ? (
+              <ChildChips
+                students={students}
+                selectedId={selectedStudentId || null}
+                onSelect={(id) => setSelectedStudentId(id)}
+              />
+            ) : (
+              <StudentSwitcher
+                students={switcherStudents}
+                selectedStudentId={selectedStudentId || null}
+                onSelect={(id) => setSelectedStudentId(id)}
+                placeholder="Switch student"
+              />
+            )
           )}
 
           {/* Tutor: back to student list */}

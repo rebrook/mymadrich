@@ -139,6 +139,60 @@ export function tutorListProfiles(studentTutors) {
     .map((st) => st.tutor);
 }
 
+// ---- Guardians: one person, one set of details ----
+
+/**
+ * True when a name is blank, or is really just an email address (which is what an account
+ * created by a magic-link sign-in is named until someone sets a real name).
+ *
+ * @param {string|null|undefined} name
+ * @param {string|null|undefined} [email] - the account's email, to catch "name equals email"
+ * @returns {boolean}
+ */
+export function isPlaceholderName(name, email) {
+  const n = (name || '').trim();
+  if (!n) return true;
+  if (n.includes('@')) return true;
+  return Boolean(email) && n.toLowerCase() === String(email).trim().toLowerCase();
+}
+
+/**
+ * Resolves a guardian to the details every screen should show.
+ *
+ * One person has one set of details. When a guardian record is linked to an account, the
+ * ACCOUNT's name, email, and phone are shown. When it is not linked, the record's own details
+ * are shown, so a parent who has never signed in is unaffected.
+ *
+ * Two safeguards, so a link never makes things worse:
+ *   - If the account's name is blank or just its email, the record's typed name is used.
+ *   - If the account has no email or phone, the record's own value is kept.
+ *
+ * @param {Object} guardian - A student_guardians row. When linked it should carry
+ *   `profile` ({ display_name, email, phone }) from the join
+ *   student_guardians(..., profile:profiles!user_id(display_name, email, phone)).
+ * @returns {{ id, name, email, phone, relationship, isPrimary, isLinked }}
+ */
+export function resolveGuardian(guardian) {
+  const g = guardian || {};
+  const account = g.user_id && g.profile ? g.profile : null;
+
+  const recordName = (g.name || '').trim();
+  const accountName = account && !isPlaceholderName(account.display_name, account.email)
+    ? account.display_name.trim()
+    : '';
+
+  return {
+    id: g.id,
+    // Account name, else the typed name, else a humanized email (never a raw address)
+    name: accountName || recordName || (account ? tutorName(account, '') : ''),
+    email: ((account && account.email) || g.email || '').trim(),
+    phone: ((account && account.phone) || g.phone || '').trim(),
+    relationship: g.relationship || '',
+    isPrimary: Boolean(g.is_primary),
+    isLinked: Boolean(account),
+  };
+}
+
 // ---- Mitzvah type utilities ----
 
 /**

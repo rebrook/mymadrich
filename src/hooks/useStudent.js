@@ -61,10 +61,11 @@ export function useStudent(studentId) {
       if (eErr) throw eErr;
       setElements(e || []);
 
-      // Guardians
+      // Guardians, each with the account it is linked to (if any), so every screen shows one set
+      // of details per person
       const { data: g, error: gErr } = await supabase
         .from('student_guardians')
-        .select('*')
+        .select('*, profile:profiles!user_id(display_name, email, phone)')
         .eq('student_id', studentId)
         .order('sort_order');
       if (gErr) throw gErr;

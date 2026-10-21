@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { openInviteEmail } from '../../utils/mailto';
+import { resolveGuardian } from '../../utils/people';
 import { fetchAccounts, findAccountByEmail, describeRoles } from '../../utils/existingAccounts';
 import Modal from '../ui/Modal';
 
@@ -59,6 +60,8 @@ export default function GuardiansSection({
     phone: '',
     is_primary: false,
   });
+  // When the email typed in the Add form belongs to an existing account, offer to link to it
+  const [linkOnAdd, setLinkOnAdd] = useState(true);
 
   // Fetch pending invitation status for guardians with emails
   useEffect(() => {
@@ -96,6 +99,7 @@ export default function GuardiansSection({
 
   function resetForm() {
     setForm({ name: '', relationship: 'Parent', email: '', phone: '', is_primary: false });
+    setLinkOnAdd(true);
     setEditingGuardian(null);
     setShowForm(false);
     setError(null);
@@ -114,7 +118,8 @@ export default function GuardiansSection({
   }
 
   async function handleSubmit() {
-    if (!form.name.trim()) {
+    const editingLinked = Boolean(editingGuardian && editingGuardian.user_id);
+    if (!editingLinked && !form.name.trim()) {
       setError('Name is required.');
       return;
     }
@@ -122,20 +127,43 @@ export default function GuardiansSection({
     setSaving(true);
     setError(null);
     try {
-      const payload = {
-        name: form.name.trim(),
-        relationship: form.relationship,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        is_primary: form.is_primary,
-        sort_order: editingGuardian
-          ? editingGuardian.sort_order
-          : guardians.length + 1,
-      };
+      let payload;
+      if (editingLinked) {
+        // Name, email, and phone belong to the linked account (edited in Users). Only what
+        // belongs to the relationship is saved here, so account details are never copied in.
+        payload = {
+          relationship: form.relationship,
+          is_primary: form.is_primary,
+          sort_order: editingGuardian.sort_order,
+        };
+      } else {
+        payload = {
+          name: form.name.trim(),
+          relationship: form.relationship,
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          is_primary: form.is_primary,
+          sort_order: editingGuardian
+            ? editingGuardian.sort_order
+            : guardians.length + 1,
+        };
+      }
 
       if (editingGuardian) {
         await onUpdateGuardian(editingGuardian.id, payload);
       } else {
+        // A new guardian whose email already has an account can be linked in the same step
+        const match = linkOnAdd ? findAccountByEmail(accounts, form.email) : null;
+        if (match) {
+          if (!match.roles.includes('parent')) {
+            const { error: roleErr } = await supabase.rpc('grant_role', {
+              p_profile_id: match.id,
+              p_role: 'parent',
+            });
+            if (roleErr) throw roleErr;
+          }
+          payload.user_id = match.id;
+        }
         await onCreateGuardian(payload);
       }
       resetForm();
@@ -328,21 +356,28 @@ export default function GuardiansSection({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
           {guardians.map((g) => {
             const status = getInviteStatus(g);
+            // One person, one set of details: a linked guardian shows their account's details
+            const person = resolveGuardian(g);
             return (
               <div key={g.id} className="guardian-card">
                 <div className="guardian-card-info">
                   <div className="guardian-card-name">
-                    <strong>{g.name}</strong>
-                    <span className="form-hint">({g.relationship})</span>
+                    <strong>{person.name}</strong>
+                    <span className="form-hint">({person.relationship})</span>
                     {g.is_primary && <span className="badge badge-active">Primary</span>}
                     {status === 'linked' && <span className="badge badge-completed">Linked</span>}
                     {status === 'invited' && <span className="badge badge-deferred">Invited</span>}
                   </div>
                   <div className="guardian-card-contact">
-                    {g.email && <span>{g.email}</span>}
-                    {g.email && g.phone && <span className="form-hint">&middot;</span>}
-                    {g.phone && <span>{g.phone}</span>}
+                    {person.email && <span>{person.email}</span>}
+                    {person.email && person.phone && <span className="form-hint">&middot;</span>}
+                    {person.phone && <span>{person.phone}</span>}
                   </div>
+                  {person.isLinked && (
+                    <div className="form-hint">
+                      These details come from their account. To change them, use Edit on the Users tab.
+                    </div>
+                  )}
                 </div>
                 <div className="action-buttons">
                   {status === 'can_link' && (
@@ -446,6 +481,28 @@ export default function GuardiansSection({
           footer={formFooter}
         >
           {error && <div className="alert alert-error">{error}</div>}
+
+          {editingGuardian && editingGuardian.user_id ? (
+            /* A linked guardian: the account holds their name, email, and phone */
+            <div className="form-group">
+              {(() => {
+                const person = resolveGuardian(editingGuardian);
+                return (
+                  <>
+                    <p style={{ margin: 0 }}><strong>{person.name}</strong></p>
+                    <p className="form-hint" style={{ margin: 'var(--space-1) 0 0' }}>
+                      {[person.email, person.phone].filter(Boolean).join(' \u00B7 ') || 'No contact details on the account'}
+                    </p>
+                    <p className="form-hint" style={{ margin: 'var(--space-2) 0 0' }}>
+                      This person has an account, so their name, email, and phone come from it. To change
+                      them, use Edit on the Users tab. You can change the relationship and primary
+                      contact here.
+                    </p>
+                  </>
+                );
+              })()}
+            </div>
+          ) : (
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Name *</label>
@@ -469,6 +526,26 @@ export default function GuardiansSection({
               </select>
             </div>
           </div>
+          )}
+
+          {/* Linked guardian: only the relationship is editable here */}
+          {editingGuardian && editingGuardian.user_id && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="guardian-relationship">Relationship</label>
+              <select
+                id="guardian-relationship"
+                className="input"
+                value={form.relationship}
+                onChange={(e) => setForm({ ...form, relationship: e.target.value })}
+              >
+                {RELATIONSHIP_OPTIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {!(editingGuardian && editingGuardian.user_id) && (
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Email</label>
@@ -489,6 +566,35 @@ export default function GuardiansSection({
               />
             </div>
           </div>
+          )}
+
+          {/* New guardian whose email already belongs to an account: offer one-step linking */}
+          {!editingGuardian && findAccountByEmail(accounts, form.email) && (() => {
+            const match = findAccountByEmail(accounts, form.email);
+            return (
+              <div className="alert alert-success" role="status">
+                <p style={{ margin: 0 }}>
+                  <strong>{match.display_name || match.email} already has an account with this email.</strong>
+                </p>
+                <label className="checkbox-row" style={{ marginTop: 'var(--space-2)' }}>
+                  <input
+                    type="checkbox"
+                    checked={linkOnAdd}
+                    onChange={(e) => setLinkOnAdd(e.target.checked)}
+                  />
+                  <span>
+                    Link this guardian to that account
+                    {match.roles.includes('parent') ? '' : ' (this also gives them the Parent role)'}
+                  </span>
+                </label>
+                <p className="form-hint" style={{ margin: 'var(--space-1) 0 0' }}>
+                  Linking means there is one person with one set of details, and no second copy to
+                  keep up to date. No email is sent.
+                </p>
+              </div>
+            );
+          })()}
+
           <label className="checkbox-row">
             <input
               type="checkbox"

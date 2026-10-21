@@ -17,9 +17,10 @@ import { useSessions } from '../hooks/useSessions';
 import { fetchScopedStudentIds } from '../utils/scope';
 import usePageTitle from '../hooks/usePageTitle';
 import { formatDateCompact, formatSessionTime, formatSessionTimeRange, getTodayDateString, addDaysToDateString } from '../utils/datetime';
-import { tutorName } from '../utils/people';
+import { tutorName, resolveGuardian } from '../utils/people';
 import Modal from '../components/ui/Modal';
 import StudentSwitcher from '../components/ui/StudentSwitcher';
+import ChildChips from '../components/ui/ChildChips';
 import { SessionListSkeleton } from '../components/ui/SkeletonBlock';
 
 // ---- localStorage persistence key ----
@@ -308,7 +309,7 @@ export default function SessionHistoryPage() {
 
         let studentQuery = supabase
           .from('students')
-          .select('id, first_name, last_name, tutor_id, mitzvah_date, tutor:profiles!tutor_id(display_name), cohort:cohorts!cohort_id(id, start_date), student_guardians(name, is_primary)')
+          .select('id, first_name, last_name, tutor_id, mitzvah_date, tutor:profiles!tutor_id(display_name), cohort:cohorts!cohort_id(id, start_date), status, student_guardians(user_id, name, email, phone, is_primary, profile:profiles!user_id(display_name, email, phone))')
           .in('status', ['active', 'deferred', 'completed'])
           .order('last_name');
         if (scopeIds) studentQuery = studentQuery.in('id', scopeIds);
@@ -394,7 +395,7 @@ export default function SessionHistoryPage() {
   const switcherStudents = students.map((s) => ({
     ...s,
     guardians: (s.student_guardians || []).map((g) => ({
-      first_name: g.name,
+      first_name: resolveGuardian(g).name,
       last_name: '',
       is_primary: g.is_primary,
     })),
@@ -568,12 +569,20 @@ export default function SessionHistoryPage() {
           ) : (
             <>
               {!allStudents && (
-                <StudentSwitcher
-                  students={switcherStudents}
-                  selectedStudentId={selectedStudentId || null}
-                  onSelect={(id) => setSelectedStudentId(id)}
-                  placeholder="Switch student"
-                />
+                role === ROLES.PARENT && students.length >= 2 && students.length <= 5 ? (
+                  <ChildChips
+                    students={students}
+                    selectedId={selectedStudentId || null}
+                    onSelect={(id) => setSelectedStudentId(id)}
+                  />
+                ) : (
+                  <StudentSwitcher
+                    students={switcherStudents}
+                    selectedStudentId={selectedStudentId || null}
+                    onSelect={(id) => setSelectedStudentId(id)}
+                    placeholder="Switch student"
+                  />
+                )
               )}
               {!allStudents && selectedStudentId && (
                 searchParams.get('from') === 'dashboard' ? (

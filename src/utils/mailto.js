@@ -10,6 +10,7 @@
  */
 
 import { formatSessionDate } from './datetime';
+import { resolveGuardian } from './people';
 
 // ---- Internal helpers ----
 
@@ -190,18 +191,25 @@ export function buildUpcomingReminderMailto({ guardianEmail, guardianName, stude
  * Returns the first primary guardian with an email, or the first guardian
  * with an email, or null.
  *
- * @param {Array} guardians - Array of guardian objects from the student query.
+ * Each guardian is resolved through resolveGuardian first, so a guardian linked to an
+ * account is reached at the ACCOUNT's email, and a record with no email of its own is
+ * still reachable once its person has an account. Unlinked guardians behave as before.
+ *
+ * @param {Array} guardians - Array of guardian objects from the student query
+ *   (with the optional `profile` join for linked guardians).
  * @returns {{ name: string, email: string } | null}
  */
 export function resolvePrimaryGuardianContact(guardians) {
   if (!guardians || guardians.length === 0) return null;
 
+  const resolved = guardians.map(resolveGuardian);
+
   // Prefer primary guardian with an email
-  const primary = guardians.find((g) => g.is_primary && g.email);
+  const primary = resolved.find((g) => g.isPrimary && g.email);
   if (primary) return { name: primary.name, email: primary.email };
 
   // Fall back to any guardian with an email
-  const withEmail = guardians.find((g) => g.email);
+  const withEmail = resolved.find((g) => g.email);
   if (withEmail) return { name: withEmail.name, email: withEmail.email };
 
   return null;

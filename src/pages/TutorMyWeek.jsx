@@ -213,7 +213,7 @@ export default function TutorMyWeek() {
             tutor_id, lessons_per_week, target_completion_date, created_at, status,
             next_session_date, next_session_time, next_session_end_time,
             cohort:cohorts!cohort_id(id, name, start_date, completion_buffer_weeks, default_lessons_per_week),
-            student_guardians(name, email, is_primary),
+            student_guardians(user_id, name, email, phone, is_primary, profile:profiles!user_id(display_name, email, phone)),
             readings:readings(id, reading_type, portion_name, portion_name_hebrew, aliyah, reference, sort_order)
           `)
           .in('id', myStudentIds)
