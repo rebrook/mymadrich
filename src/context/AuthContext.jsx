@@ -27,6 +27,37 @@ function withTimeout(promise, ms) {
   });
 }
 
+/**
+ * If the startup check (reading the saved session and loading the profile) takes unusually long,
+ * record how long it took and what the browser's locks were doing. This is a measurement only:
+ * it changes nothing on screen. The most recent report is kept in localStorage so it can be read
+ * after the fact:  localStorage.getItem('mymadrich:slow_startup')
+ */
+const SLOW_STARTUP_MS = 3_000;
+
+async function recordSlowStartup(ms, reason) {
+  let locks = 'unavailable';
+  try {
+    if (navigator.locks && navigator.locks.query) {
+      const snapshot = await navigator.locks.query();
+      const brief = (l) => ({ name: l.name, mode: l.mode, clientId: l.clientId });
+      locks = {
+        held: (snapshot.held || []).map(brief),
+        pending: (snapshot.pending || []).map(brief),
+      };
+    }
+  } catch {
+    // Not available in this browser; the timing alone is still useful
+  }
+  const report = { ms, reason, at: new Date().toISOString(), locks };
+  console.warn(`MyMadrich startup took ${ms} ms (${reason}).`, report);
+  try {
+    localStorage.setItem('mymadrich:slow_startup', JSON.stringify(report));
+  } catch {
+    // Storage unavailable: the console line above is all we keep
+  }
+}
+
 function readStored(key) {
   try {
     return localStorage.getItem(key);
@@ -60,6 +91,14 @@ export function AuthProvider({ children }) {
   // fires first handles the initial profile fetch; the other becomes a no-op.
   const initializedRef = useRef(false);
 
+  // One profile load at a time per person. The sign-in listener can fire several events in quick
+  // succession (more with several tabs open); a load already running is shared, not repeated.
+  const inFlightRef = useRef(null);
+
+  // Startup timing (measurement only, see recordSlowStartup)
+  const startedAtRef = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
+  const startupNotedRef = useRef(false);
+
   useEffect(() => {
     // Fix 3 — Safety timeout: if auth init hasn't resolved in 10 s,
     // force loading to false so the app escapes to login instead of spinning.
@@ -67,6 +106,7 @@ export function AuthProvider({ children }) {
       setLoading((prev) => {
         if (prev) {
           console.warn('Auth init safety timeout — forcing loading=false');
+          noteStartup('safety timeout');
         }
         return false;
       });
@@ -85,6 +125,7 @@ export function AuthProvider({ children }) {
         }
         if (!s?.user) {
           setLoading(false);
+          noteStartup('no saved session');
         }
       })
       .catch((e) => {
@@ -94,7 +135,7 @@ export function AuthProvider({ children }) {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, s) => {
+      (event, s) => {
         setSession(s);
 
         // De-dupe: if getSession already handled the initial fetch, skip.
@@ -103,13 +144,21 @@ export function AuthProvider({ children }) {
           initializedRef.current = true;
         }
 
-        if (s?.user) {
-          await fetchProfile(s.user.id);
-        } else {
-          setProfile(null);
-          clearRoles();
-          setLoading(false);
-        }
+        // Supabase warns against calling any of its methods (or awaiting them) inside this
+        // callback: it runs while the auth state is being processed, and a request made from
+        // inside it can wait on that same processing and deadlock. The work is handed off to run
+        // right after the callback returns.
+        // https://supabase.com/docs/reference/javascript/auth-onauthstatechange
+        setTimeout(() => {
+          if (s?.user) {
+            fetchProfile(s.user.id);
+          } else {
+            setProfile(null);
+            clearRoles();
+            setLoading(false);
+            noteStartup('signed out');
+          }
+        }, 0);
       }
     );
 
@@ -127,7 +176,33 @@ export function AuthProvider({ children }) {
     setActiveRole(null);
   }
 
-  async function fetchProfile(userId) {
+  /** Records startup timing once, and only reports it when it was slow. */
+  function noteStartup(reason) {
+    if (startupNotedRef.current) return;
+    startupNotedRef.current = true;
+    const ms = Math.round(performance.now() - startedAtRef.current);
+    if (ms >= SLOW_STARTUP_MS) recordSlowStartup(ms, reason);
+  }
+
+  /**
+   * Loads the person's profile and roles. If a load for the same person is already running,
+   * that one is shared instead of starting another. `force` skips sharing (used by
+   * refreshProfile, which wants fresh data after a role change).
+   */
+  function fetchProfile(userId, { force = false } = {}) {
+    const running = inFlightRef.current;
+    if (!force && running && running.userId === userId) return running.promise;
+
+    const promise = loadProfile(userId).finally(() => {
+      if (inFlightRef.current && inFlightRef.current.promise === promise) {
+        inFlightRef.current = null;
+      }
+    });
+    inFlightRef.current = { userId, promise };
+    return promise;
+  }
+
+  async function loadProfile(userId) {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -167,6 +242,7 @@ export function AuthProvider({ children }) {
       });
     } finally {
       setLoading(false);
+      noteStartup('profile loaded');
     }
   }
 
@@ -258,7 +334,7 @@ export function AuthProvider({ children }) {
    * their own roles), so the view switcher updates without a reload.
    */
   const refreshProfile = useCallback(async () => {
-    if (userIdRef.current) await fetchProfile(userIdRef.current);
+    if (userIdRef.current) await fetchProfile(userIdRef.current, { force: true });
   }, []);
 
   async function signInWithGoogle() {
