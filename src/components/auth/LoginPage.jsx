@@ -5,44 +5,58 @@ import usePageTitle from '../../hooks/usePageTitle';
 import emblemGold from '../../assets/chizuk-emblem-gold.png';
 import emblemCream from '../../assets/chizuk-emblem-cream.png';
 import Footer from '../layout/Footer';
+import { COORDINATOR } from '../../utils/contact';
 
 // main.jsx keeps an auth error from the web address here, because the router drops the address
 // before this page loads (a refused or locked account comes back to the site root with an error).
 const AUTH_ERROR_KEY = 'mymadrich:auth_error';
 
-const MSG_INACTIVE =
-  'Your account is inactive. Please contact the B\u2019nai Mitzvah coordinator to restore your access.';
-const MSG_REDIRECT_FALLBACK =
-  'We couldn\u2019t sign you in with that account. If you were invited, please use the email address '
-  + 'your invitation was sent to. Otherwise, contact the B\u2019nai Mitzvah coordinator.';
-
 /**
- * Turn a raw sign-in error into words a family can act on.
+ * Turn a raw sign-in error into a notice a family can act on.
  *   - A locked (deactivated) account says so.
- *   - Our own invite-only message already says "invitation", so it is shown as it is.
+ *   - A sign-up with no invitation (our own database message) says there is no account.
  *   - Anything else from the sign-in form is shown as it is; anything else that comes back
  *     through the web address gets a plain fallback instead of technical text.
+ * The wording lives here, not in the database, so the coordinator's name can be a real email link.
  */
-function friendlyAuthMessage(raw, { fromRedirect = false } = {}) {
+function classifyAuthError(raw, { fromRedirect = false } = {}) {
   const text = String(raw || '');
-  if (/banned/i.test(text)) return MSG_INACTIVE;
-  if (/invitation/i.test(text)) return text;
-  return fromRedirect ? MSG_REDIRECT_FALLBACK : text;
+  if (/banned/i.test(text)) return { kind: 'inactive' };
+  if (/no mymadrich account|invitation/i.test(text)) return { kind: 'no-account' };
+  return fromRedirect ? { kind: 'redirect-fallback' } : { kind: 'text', text };
 }
 
-/**
- * Login page — elevated ceremonial direction.
- *
- * Desktop (>= 720px): two-column grid.
- *   Left:  deep purple brand panel with gold emblem, Hebrew, tagline, footer.
- *   Right: auth form (Google SSO + magic link).
- *
- * Mobile (< 720px): brand panel hides; a compact brand band sits above the
- * centered auth form.
- *
- * All auth handlers (signInWithGoogle, signInWithMagicLink) and the
- * Navigate-to-dashboard guard are preserved exactly from the original.
- */
+function CoordinatorLink() {
+  return <a href={`mailto:${COORDINATOR.email}`}>{COORDINATOR.name}</a>;
+}
+
+/** The words shown for a classified sign-in problem. */
+function AuthNotice({ notice }) {
+  switch (notice.kind) {
+    case 'inactive':
+      return (
+        <>Your account is inactive. Please contact <CoordinatorLink /> to restore your access.</>
+      );
+    case 'no-account':
+      return (
+        <>
+          There is currently no MyMadrich account associated with this email. If you were invited
+          under a different email address, sign out and try that one, or reach out to{' '}
+          <CoordinatorLink /> to update your login information.
+        </>
+      );
+    case 'redirect-fallback':
+      return (
+        <>
+          We couldn&rsquo;t sign you in with that account. If you were invited, please use the email
+          address your invitation was sent to. Otherwise, reach out to <CoordinatorLink />.
+        </>
+      );
+    default:
+      return notice.text;
+  }
+}
+
 export default function LoginPage() {
   const { user, loading, signInWithGoogle, signInWithMagicLink } = useAuth();
   const [email, setEmail] = useState('');
@@ -58,7 +72,7 @@ export default function LoginPage() {
       if (!stored) return;
       sessionStorage.removeItem(AUTH_ERROR_KEY);
       const { description } = JSON.parse(stored);
-      setError(friendlyAuthMessage(description, { fromRedirect: true }));
+      setError(classifyAuthError(description, { fromRedirect: true }));
     } catch {
       // Storage unavailable: the page simply shows no extra detail
     }
@@ -84,7 +98,7 @@ export default function LoginPage() {
       await signInWithMagicLink(email.trim());
       setMagicLinkSent(true);
     } catch (err) {
-      setError(friendlyAuthMessage(err.message));
+      setError(classifyAuthError(err.message));
     } finally {
       setSubmitting(false);
     }
@@ -141,7 +155,11 @@ export default function LoginPage() {
             Welcome back. Continue the journey to the bimah.
           </p>
 
-          {error && <div className="alert alert-error" role="alert">{error}</div>}
+          {error && (
+            <div className="alert alert-error" role="alert">
+              <AuthNotice notice={error} />
+            </div>
+          )}
 
           {magicLinkSent ? (
             <div className="alert alert-success" role="status">

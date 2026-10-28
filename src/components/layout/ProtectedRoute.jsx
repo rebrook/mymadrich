@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_LABELS } from '../../utils/constants';
 import { ROLE_ORDER } from '../../utils/roles';
+import { COORDINATOR } from '../../utils/contact';
 
 /** How long to wait for `role` to arrive after `loading` clears before
  *  treating profile sync as failed (ms). */
@@ -57,7 +58,8 @@ export default function ProtectedRoute({ allowedRoles, children }) {
         <div className="auth-error-card">
           <h2 className="auth-error-title">Your account is inactive</h2>
           <p className="auth-error-message">
-            Please contact the B&rsquo;nai Mitzvah coordinator to restore your access.
+            Please contact{' '}
+            <a href={`mailto:${COORDINATOR.email}`}>{COORDINATOR.name}</a> to restore your access.
           </p>
           <div className="auth-error-actions">
             <button
