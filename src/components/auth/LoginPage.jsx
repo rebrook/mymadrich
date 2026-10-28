@@ -41,7 +41,7 @@ function AuthNotice({ notice }) {
       return (
         <>
           There is currently no MyMadrich account associated with this email. If you were invited
-          under a different email address, sign out and try that one, or reach out to{' '}
+          under a different email address, try signing in with that one, or reach out to{' '}
           <CoordinatorLink /> to update your login information.
         </>
       );
